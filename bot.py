@@ -29,7 +29,8 @@ async def set_bot_commands():
         types.BotCommand(command="run", description="Запустить сервер"),
         types.BotCommand(command="stop", description="Остановить сервер"),
         types.BotCommand(command="update", description="Обновить сервер"),
-        types.BotCommand(command="status", description="Проверить статус сервера")
+        types.BotCommand(command="status", description="Проверить статус сервера"),
+        types.BotCommand(command="cmd", description="Отправить команду в CS2")
     ]
     await bot.set_my_commands(commands)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
@@ -76,8 +77,6 @@ async def run_server(callback: types.CallbackQuery):
         reply_markup=menu_keyboard
     )
 
-
-
 async def start_cs2_server():
     command = (
         "screen -dmS cs2_server bash -c '"
@@ -102,12 +101,25 @@ async def server_status(callback: types.CallbackQuery):
     
     if output:
         connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
+        command_button = InlineKeyboardButton(text="💻 Ввести команду", callback_data="enter_command")
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[command_button]])
         status_text = f"✅ Сервер **запущен**!\n\n{connect_text}\n\nСкопируй команду и вставь в консоль CS2."
     else:
+        keyboard = menu_keyboard
         status_text = "❌ Сервер **выключен**!"
 
-    await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
+    await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=keyboard)
 
+# Обработка кнопки "💻 Ввести команду"
+@dp.callback_query(lambda c: c.data == "enter_command")
+async def enter_command(callback: types.CallbackQuery):
+    await callback.message.answer("✍ Введите команду для CS2:")
+    dp.register_message_handler(process_command, content_types=types.ContentType.TEXT)
+
+async def process_command(message: types.Message):
+    command = message.text
+    output = execute_ssh_command(f'screen -S cs2_server -X stuff "{command}\n"')
+    await message.answer(f"✅ Команда выполнена: `{command}`", parse_mode="Markdown")
 
 async def on_startup():
     await set_bot_commands()
