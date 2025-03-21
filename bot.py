@@ -101,9 +101,13 @@ async def server_status(callback: types.CallbackQuery):
     output = execute_ssh_command("pgrep -f cs2")
     
     if output:
-        await callback.message.edit_text("✅ Сервер **запущен**!", parse_mode="Markdown", reply_markup=menu_keyboard)
+        connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
+        status_text = f"✅ Сервер **запущен**!\n\n{connect_text}\n\nСкопируй команду и вставь в консоль CS2."
     else:
-        await callback.message.edit_text("❌ Сервер **выключен**!", parse_mode="Markdown", reply_markup=menu_keyboard)
+        status_text = "❌ Сервер **выключен**!"
+
+    await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
+
 
 async def on_startup():
     await set_bot_commands()
