@@ -36,9 +36,7 @@ async def set_bot_commands():
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 def execute_ssh_command(command):
-    """
-    Выполняет команду по SSH.
-    """
+    """ Выполняет команду по SSH. """
     try:
         key = paramiko.RSAKey.from_private_key_file(SSH_KEY_PATH)
         client = paramiko.SSHClient()
@@ -78,8 +76,9 @@ async def run_server(callback: types.CallbackQuery):
     )
 
 async def start_cs2_server():
+    """ Запускает CS2 сервер в отдельном screen с именем cs2_console """
     command = (
-        "screen -dmS cs2_server bash -c '"
+        "screen -dmS cs2_console bash -c '"
         "cd /home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike\\ Global\\ Offensive/game/bin/linuxsteamrt64/ && "
         "chmod +x start.sh && ./start.sh > cs2_log.txt 2>&1'"
     )
@@ -118,7 +117,7 @@ async def enter_command(callback: types.CallbackQuery):
 
 async def process_command(message: types.Message):
     command = message.text
-    output = execute_ssh_command(f'screen -S cs2_server -X stuff "{command}\n"')
+    output = execute_ssh_command(f'screen -S cs2_console -X stuff "{command}\n"')
     await message.answer(f"✅ Команда выполнена: `{command}`", parse_mode="Markdown")
 
 async def on_startup():
