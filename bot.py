@@ -31,8 +31,7 @@ async def set_bot_commands():
         types.BotCommand(command="run", description="Запустить сервер"),
         types.BotCommand(command="stop", description="Остановить сервер"),
         types.BotCommand(command="update", description="Обновить сервер"),
-        types.BotCommand(command="status", description="Проверить статус сервера"),
-        types.BotCommand(command="cmd", description="Отправить команду в CS2")
+        types.BotCommand(command="status", description="Проверить статус сервера")
     ]
     await bot.set_my_commands(commands)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
@@ -102,37 +101,11 @@ async def server_status(callback: types.CallbackQuery):
 
     if "cs2_console" in output:
         connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
-        command_button = InlineKeyboardButton(text="💻 Ввести команду", callback_data="enter_command")
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[command_button]])
         status_text = f"✅ Сервер **запущен**!\n\n{connect_text}\n\nСкопируй команду и вставь в консоль CS2."
     else:
-        keyboard = menu_keyboard
         status_text = "❌ Сервер **выключен**!"
 
-    await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=keyboard)
-
-@dp.callback_query(lambda c: c.data == "enter_command")
-async def enter_command(callback: types.CallbackQuery):
-    await callback.message.answer("✍ Введите команду для CS2:")
-    dp.message.register(process_command, content_types=types.ContentType.TEXT)
-
-async def process_command(message: types.Message):
-    """ Отправляет команду в screen cs2_console """
-    command = message.text
-    if not command:
-        await message.answer("❌ Ошибка: команда не должна быть пустой.")
-        return
-
-    # Проверяем, работает ли screen
-    screen_check = execute_ssh_command("screen -ls | grep cs2_console")
-    if "cs2_console" not in screen_check:
-        await message.answer("❌ Ошибка: сервер не запущен!")
-        return
-
-    # Отправляем команду в screen
-    execute_ssh_command(f'screen -S cs2_console -X stuff "{command}$(echo -ne \'\n\')"')
-
-    await message.answer(f"✅ Команда выполнена: `{command}`", parse_mode="Markdown")
+    await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
 
 async def on_startup():
     await set_bot_commands()
