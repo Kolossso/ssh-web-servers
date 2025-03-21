@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonCommands
 from aiogram.filters import Command
 
+# 🔐 ДАННЫЕ ДЛЯ ПОДКЛЮЧЕНИЯ
 TOKEN = "7056307221:AAG3hT2Vyn5AXaMTWrqr0JvaxXHks_4KkVk"
 SSH_HOST = "34.88.223.194"
 SSH_PORT = 22
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Главное меню
+# 📌 Главное меню
 menu_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🚀 Запустить сервер", callback_data="run_server")],
     [InlineKeyboardButton(text="🛑 Остановить сервер", callback_data="stop_server")],
@@ -37,7 +38,7 @@ async def set_bot_commands():
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 def execute_ssh_command(command):
-    """ Выполняет команду по SSH. """
+    """ Выполняет команду на сервере по SSH """
     try:
         key = paramiko.RSAKey.from_private_key_file(SSH_KEY_PATH)
         client = paramiko.SSHClient()
@@ -77,7 +78,7 @@ async def run_server(callback: types.CallbackQuery):
     )
 
 async def start_cs2_server():
-    """ Запускает CS2 сервер в отдельном screen с именем cs2_console """
+    """ Запускает CS2 сервер в screen cs2_console """
     command = (
         "screen -dmS cs2_console bash -c '"
         "cd /home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike\\ Global\\ Offensive/game/bin/linuxsteamrt64/ && "
@@ -87,7 +88,7 @@ async def start_cs2_server():
 
 @dp.callback_query(lambda c: c.data == "stop_server")
 async def stop_server(callback: types.CallbackQuery):
-    execute_ssh_command("pkill -f cs2")
+    execute_ssh_command("screen -S cs2_console -X quit")
     await callback.message.edit_text("✅ Сервер остановлен.", reply_markup=menu_keyboard)
 
 @dp.callback_query(lambda c: c.data == "update_server")
@@ -97,9 +98,9 @@ async def update_server(callback: types.CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "server_status")
 async def server_status(callback: types.CallbackQuery):
-    output = execute_ssh_command("pgrep -f cs2")
-    
-    if output:
+    output = execute_ssh_command("screen -ls | grep cs2_console")
+
+    if "cs2_console" in output:
         connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
         command_button = InlineKeyboardButton(text="💻 Ввести команду", callback_data="enter_command")
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[command_button]])
@@ -110,7 +111,6 @@ async def server_status(callback: types.CallbackQuery):
 
     await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=keyboard)
 
-# Обработка кнопки "💻 Ввести команду"
 @dp.callback_query(lambda c: c.data == "enter_command")
 async def enter_command(callback: types.CallbackQuery):
     await callback.message.answer("✍ Введите команду для CS2:")
@@ -122,9 +122,15 @@ async def process_command(message: types.Message):
     if not command:
         await message.answer("❌ Ошибка: команда не должна быть пустой.")
         return
-    
+
+    # Проверяем, работает ли screen
+    screen_check = execute_ssh_command("screen -ls | grep cs2_console")
+    if "cs2_console" not in screen_check:
+        await message.answer("❌ Ошибка: сервер не запущен!")
+        return
+
     # Отправляем команду в screen
-    execute_ssh_command(f'screen -S cs2_console -X stuff "{command}\\n"')
+    execute_ssh_command(f'screen -S cs2_console -X stuff "{command}$(echo -ne \'\n\')"')
 
     await message.answer(f"✅ Команда выполнена: `{command}`", parse_mode="Markdown")
 
