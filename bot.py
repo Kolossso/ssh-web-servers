@@ -64,15 +64,18 @@ async def start(message: types.Message):
 
 @dp.callback_query(lambda c: c.data == "run_server")
 async def run_server(callback: types.CallbackQuery):
+    await callback.message.edit_text("⏳ Запускаю сервер...", reply_markup=None)
+
     asyncio.create_task(start_cs2_server())
 
     connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
-    await callback.message.answer(
+    await callback.message.edit_text(
         f"✅ Сервер запущен!\n\n{connect_text}\n\n"
         "Скопируй команду и вставь в консоль CS2.",
         parse_mode="Markdown",
         reply_markup=menu_keyboard
     )
+
 
 
 async def start_cs2_server():
