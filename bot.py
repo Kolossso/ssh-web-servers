@@ -3,6 +3,7 @@ import paramiko
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonCommands
+from aiogram.filters import Command
 
 TOKEN = "7056307221:AAG3hT2Vyn5AXaMTWrqr0JvaxXHks_4KkVk"
 SSH_HOST = "34.88.223.194"
@@ -36,7 +37,7 @@ async def set_bot_commands():
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 def execute_ssh_command(command):
-    """ Выполняет команду по SSH и возвращает вывод. """
+    """ Выполняет команду по SSH. """
     try:
         key = paramiko.RSAKey.from_private_key_file(SSH_KEY_PATH)
         client = paramiko.SSHClient()
@@ -54,7 +55,7 @@ def execute_ssh_command(command):
         logging.error(f"Ошибка SSH: {e}")
         return f"Ошибка: {str(e)}"
 
-@dp.message()
+@dp.message(Command("start"))
 async def start(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         await message.answer("⛔ У тебя нет прав на управление сервером.")
@@ -76,14 +77,7 @@ async def run_server(callback: types.CallbackQuery):
     )
 
 async def start_cs2_server():
-    """ Проверяет, есть ли активный screen, если нет — запускает CS2 сервер в screen cs2_console """
-    active_screens = execute_ssh_command("screen -ls")
-    logging.info(f"Список screen перед запуском:\n{active_screens}")
-
-    if "cs2_console" in active_screens:
-        logging.info("CS2 сервер уже запущен в screen cs2_console!")
-        return
-
+    """ Запускает CS2 сервер в отдельном screen с именем cs2_console """
     command = (
         "screen -dmS cs2_console bash -c '"
         "cd /home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike\\ Global\\ Offensive/game/bin/linuxsteamrt64/ && "
@@ -91,12 +85,9 @@ async def start_cs2_server():
     )
     execute_ssh_command(command)
 
-    active_screens_after = execute_ssh_command("screen -ls")
-    logging.info(f"Список screen после запуска:\n{active_screens_after}")
-
 @dp.callback_query(lambda c: c.data == "stop_server")
 async def stop_server(callback: types.CallbackQuery):
-    execute_ssh_command("screen -S cs2_console -X quit")
+    execute_ssh_command("pkill -f cs2")
     await callback.message.edit_text("✅ Сервер остановлен.", reply_markup=menu_keyboard)
 
 @dp.callback_query(lambda c: c.data == "update_server")
@@ -106,9 +97,9 @@ async def update_server(callback: types.CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "server_status")
 async def server_status(callback: types.CallbackQuery):
-    active_screens = execute_ssh_command("screen -ls")
-
-    if "cs2_console" in active_screens:
+    output = execute_ssh_command("pgrep -f cs2")
+    
+    if output:
         connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
         command_button = InlineKeyboardButton(text="💻 Ввести команду", callback_data="enter_command")
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[command_button]])
@@ -123,21 +114,19 @@ async def server_status(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data == "enter_command")
 async def enter_command(callback: types.CallbackQuery):
     await callback.message.answer("✍ Введите команду для CS2:")
-    dp.register_message_handler(process_command, content_types=types.ContentType.TEXT)
+    dp.message.register(process_command, content_types=types.ContentType.TEXT)
 
 async def process_command(message: types.Message):
+    """ Отправляет команду в screen cs2_console """
     command = message.text
-
-    # Проверяем, есть ли screen cs2_console
-    active_screens = execute_ssh_command("screen -ls")
-    if "cs2_console" not in active_screens:
-        await message.answer("❌ Ошибка: Сервер CS2 не запущен или screen не найден!")
+    if not command:
+        await message.answer("❌ Ошибка: команда не должна быть пустой.")
         return
+    
+    # Отправляем команду в screen
+    execute_ssh_command(f'screen -S cs2_console -X stuff "{command}\\n"')
 
-    # Отправляем команду в cs2_console
-    execute_ssh_command(f'screen -S cs2_console -X stuff "{command}\n"')
-
-    await message.answer(f"✅ Команда отправлена: `{command}`", parse_mode="Markdown")
+    await message.answer(f"✅ Команда выполнена: `{command}`", parse_mode="Markdown")
 
 async def on_startup():
     await set_bot_commands()
