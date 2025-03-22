@@ -65,15 +65,12 @@ async def start(message: types.Message):
 
 @dp.callback_query(lambda c: c.data == "run_server")
 async def run_server(callback: types.CallbackQuery):
-    # Удаляем предыдущее сообщение
-    await callback.message.delete()
-    
-    await callback.message.answer("⏳ Запускаю сервер...", reply_markup=None)
+    await callback.message.edit_text("⏳ Запускаю сервер...", reply_markup=None)
 
     asyncio.create_task(start_cs2_server())
 
     connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
-    await callback.message.answer(
+    await callback.message.edit_text(
         f"✅ Сервер запущен!\n\n{connect_text}\n\n"
         "Скопируй команду и вставь в консоль CS2.",
         parse_mode="Markdown",
@@ -91,25 +88,16 @@ async def start_cs2_server():
 
 @dp.callback_query(lambda c: c.data == "stop_server")
 async def stop_server(callback: types.CallbackQuery):
-    # Удаляем предыдущее сообщение
-    await callback.message.delete()
-    
     execute_ssh_command("screen -S cs2_console -X quit")
-    await callback.message.answer("✅ Сервер остановлен.", reply_markup=menu_keyboard)
+    await callback.message.edit_text("✅ Сервер остановлен.", reply_markup=menu_keyboard)
 
 @dp.callback_query(lambda c: c.data == "update_server")
 async def update_server(callback: types.CallbackQuery):
-    # Удаляем предыдущее сообщение
-    await callback.message.delete()
-    
     execute_ssh_command("steamcmd +login anonymous +app_update 730 +quit")
-    await callback.message.answer("✅ Сервер обновлен! Теперь запусти его снова.", reply_markup=menu_keyboard)
+    await callback.message.edit_text("✅ Сервер обновлен! Теперь запусти его снова.", reply_markup=menu_keyboard)
 
 @dp.callback_query(lambda c: c.data == "server_status")
 async def server_status(callback: types.CallbackQuery):
-    # Удаляем предыдущее сообщение
-    await callback.message.delete()
-    
     output = execute_ssh_command("screen -ls | grep cs2_console")
 
     if "cs2_console" in output:
@@ -118,14 +106,11 @@ async def server_status(callback: types.CallbackQuery):
     else:
         status_text = "❌ Сервер **выключен**!"
 
-    await callback.message.answer(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
+    await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
 
 @dp.callback_query(lambda c: c.data == "send_command")
 async def request_command(callback: types.CallbackQuery):
     """Запрашивает ввод команды."""
-    # Удаляем предыдущее сообщение
-    await callback.message.delete()
-    
     await callback.message.answer("📝 Введите команду для отправки на сервер:")
     # Сохраняем состояние пользователя
     await dp.current_state(user=callback.from_user.id).set_state("waiting_for_command")
