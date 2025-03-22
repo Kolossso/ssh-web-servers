@@ -22,7 +22,8 @@ menu_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🚀 Запустить сервер", callback_data="run_server")],
     [InlineKeyboardButton(text="🛑 Остановить сервер", callback_data="stop_server")],
     [InlineKeyboardButton(text="🔄 Обновить сервер", callback_data="update_server")],
-    [InlineKeyboardButton(text="📡 Статус сервера", callback_data="server_status")]
+    [InlineKeyboardButton(text="📡 Статус сервера", callback_data="server_status")],
+    [InlineKeyboardButton(text="📝 Отправить команду", callback_data="send_command")],
 ])
 
 async def set_bot_commands():
@@ -64,12 +65,15 @@ async def start(message: types.Message):
 
 @dp.callback_query(lambda c: c.data == "run_server")
 async def run_server(callback: types.CallbackQuery):
-    await callback.message.edit_text("⏳ Запускаю сервер...", reply_markup=None)
+    # Удаляем предыдущее сообщение
+    await callback.message.delete()
+    
+    await callback.message.answer("⏳ Запускаю сервер...", reply_markup=None)
 
     asyncio.create_task(start_cs2_server())
 
     connect_text = f"🎮 Подключение к серверу:\n```connect {SSH_HOST}:27015```"
-    await callback.message.edit_text(
+    await callback.message.answer(
         f"✅ Сервер запущен!\n\n{connect_text}\n\n"
         "Скопируй команду и вставь в консоль CS2.",
         parse_mode="Markdown",
@@ -87,16 +91,25 @@ async def start_cs2_server():
 
 @dp.callback_query(lambda c: c.data == "stop_server")
 async def stop_server(callback: types.CallbackQuery):
+    # Удаляем предыдущее сообщение
+    await callback.message.delete()
+    
     execute_ssh_command("screen -S cs2_console -X quit")
-    await callback.message.edit_text("✅ Сервер остановлен.", reply_markup=menu_keyboard)
+    await callback.message.answer("✅ Сервер остановлен.", reply_markup=menu_keyboard)
 
 @dp.callback_query(lambda c: c.data == "update_server")
 async def update_server(callback: types.CallbackQuery):
+    # Удаляем предыдущее сообщение
+    await callback.message.delete()
+    
     execute_ssh_command("steamcmd +login anonymous +app_update 730 +quit")
-    await callback.message.edit_text("✅ Сервер обновлен! Теперь запусти его снова.", reply_markup=menu_keyboard)
+    await callback.message.answer("✅ Сервер обновлен! Теперь запусти его снова.", reply_markup=menu_keyboard)
 
 @dp.callback_query(lambda c: c.data == "server_status")
 async def server_status(callback: types.CallbackQuery):
+    # Удаляем предыдущее сообщение
+    await callback.message.delete()
+    
     output = execute_ssh_command("screen -ls | grep cs2_console")
 
     if "cs2_console" in output:
@@ -105,9 +118,19 @@ async def server_status(callback: types.CallbackQuery):
     else:
         status_text = "❌ Сервер **выключен**!"
 
-    await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
+    await callback.message.answer(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
 
-@dp.message(lambda m: m.text.startswith("/cmd"))
+@dp.callback_query(lambda c: c.data == "send_command")
+async def request_command(callback: types.CallbackQuery):
+    """Запрашивает ввод команды."""
+    # Удаляем предыдущее сообщение
+    await callback.message.delete()
+    
+    await callback.message.answer("📝 Введите команду для отправки на сервер:")
+    # Сохраняем состояние пользователя
+    await dp.current_state(user=callback.from_user.id).set_state("waiting_for_command")
+
+@dp.message(state="waiting_for_command")
 async def send_server_command(message: types.Message):
     """Отправляет команду в консоль CS2-сервера."""
     if message.from_user.id not in AUTHORIZED_USERS:
@@ -115,9 +138,9 @@ async def send_server_command(message: types.Message):
         return
 
     # Извлекаем команду из сообщения
-    command = message.text[len("/cmd "):].strip()
+    command = message.text.strip()
     if not command:
-        await message.answer("⚠️ Пожалуйста, укажите команду после `/cmd`.")
+        await message.answer("⚠️ Пожалуйста, укажите команду.")
         return
 
     # Отправляем команду в screen сессию
@@ -127,6 +150,9 @@ async def send_server_command(message: types.Message):
         await message.answer("❌ Сервер не запущен. Запустите сервер перед отправкой команд.")
     else:
         await message.answer(f"✅ Команда `{command}` отправлена на сервер.")
+
+    # Сбрасываем состояние
+    await dp.current_state(user=message.from_user.id).reset_state()
 
 async def on_startup():
     await set_bot_commands()
