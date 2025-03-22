@@ -66,8 +66,6 @@ async def start(message: types.Message):
 async def run_server(callback: types.CallbackQuery):
     # Удаляем предыдущее сообщение
     await callback.message.delete()
-    
-    await callback.message.answer("⏳ Запускаю сервер...", reply_markup=None)
 
     asyncio.create_task(start_cs2_server())
 
