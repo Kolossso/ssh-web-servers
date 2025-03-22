@@ -31,7 +31,8 @@ async def set_bot_commands():
         types.BotCommand(command="run", description="Запустить сервер"),
         types.BotCommand(command="stop", description="Остановить сервер"),
         types.BotCommand(command="update", description="Обновить сервер"),
-        types.BotCommand(command="status", description="Проверить статус сервера")
+        types.BotCommand(command="status", description="Проверить статус сервера"),
+        types.BotCommand(command="cmd", description="Команды для КС2")
     ]
     await bot.set_my_commands(commands)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
