@@ -107,6 +107,27 @@ async def server_status(callback: types.CallbackQuery):
 
     await callback.message.edit_text(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
 
+@dp.message(lambda m: m.text.startswith("/cmd"))
+async def send_server_command(message: types.Message):
+    """Отправляет команду в консоль CS2-сервера."""
+    if message.from_user.id not in AUTHORIZED_USERS:
+        await message.answer("⛔ У тебя нет прав на управление сервером.")
+        return
+
+    # Извлекаем команду из сообщения
+    command = message.text[len("/cmd "):].strip()
+    if not command:
+        await message.answer("⚠️ Пожалуйста, укажите команду после `/cmd`.")
+        return
+
+    # Отправляем команду в screen сессию
+    result = execute_ssh_command(f"screen -S cs2_console -X stuff '{command}\n'")
+    
+    if "No screen session found" in result:
+        await message.answer("❌ Сервер не запущен. Запустите сервер перед отправкой команд.")
+    else:
+        await message.answer(f"✅ Команда `{command}` отправлена на сервер.")
+
 async def on_startup():
     await set_bot_commands()
 
