@@ -4,8 +4,6 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonCommands
 from aiogram.filters import Command
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
 
 # 🔐 ДАННЫЕ ДЛЯ ПОДКЛЮЧЕНИЯ
 TOKEN = "7056307221:AAG3hT2Vyn5AXaMTWrqr0JvaxXHks_4KkVk"
@@ -25,12 +23,7 @@ menu_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🛑 Остановить сервер", callback_data="stop_server")],
     [InlineKeyboardButton(text="🔄 Обновить сервер", callback_data="update_server")],
     [InlineKeyboardButton(text="📡 Статус сервера", callback_data="server_status")],
-    [InlineKeyboardButton(text="📝 Отправить команду", callback_data="send_command")],
 ])
-
-# Группа состояний
-class CommandState(StatesGroup):
-    waiting_for_command = State()
 
 async def set_bot_commands():
     commands = [
@@ -126,27 +119,17 @@ async def server_status(callback: types.CallbackQuery):
 
     await callback.message.answer(status_text, parse_mode="Markdown", reply_markup=menu_keyboard)
 
-@dp.callback_query(lambda c: c.data == "send_command")
-async def request_command(callback: types.CallbackQuery, state: FSMContext):
-    """Запрашивает ввод команды."""
-    # Удаляем предыдущее сообщение
-    await callback.message.delete()
-    
-    await callback.message.answer("📝 Введите команду для отправки на сервер:")
-    # Устанавливаем состояние
-    await state.set_state(CommandState.waiting_for_command)
-
-@dp.message(CommandState.waiting_for_command)
-async def send_server_command(message: types.Message, state: FSMContext):
+@dp.message(lambda m: m.text.startswith("/cmd"))
+async def send_server_command(message: types.Message):
     """Отправляет команду в консоль CS2-сервера."""
     if message.from_user.id not in AUTHORIZED_USERS:
         await message.answer("⛔ У тебя нет прав на управление сервером.")
         return
 
     # Извлекаем команду из сообщения
-    command = message.text.strip()
+    command = message.text[len("/cmd "):].strip()
     if not command:
-        await message.answer("⚠️ Пожалуйста, укажите команду.")
+        await message.answer("⚠️ Пожалуйста, укажите команду после `/cmd`.")
         return
 
     # Отправляем команду в screen сессию
@@ -156,9 +139,6 @@ async def send_server_command(message: types.Message, state: FSMContext):
         await message.answer("❌ Сервер не запущен. Запустите сервер перед отправкой команд.")
     else:
         await message.answer(f"✅ Команда `{command}` отправлена на сервер.")
-
-    # Сбрасываем состояние
-    await state.clear()
 
 async def on_startup():
     await set_bot_commands()
