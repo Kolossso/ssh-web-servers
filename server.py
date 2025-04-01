@@ -107,64 +107,175 @@ def list_files(path=None):
         if not client:
             return {"error": "Ошибка подключения к серверу"}
         
+        # Проверяем, существует ли путь
+        stdin, stdout, stderr = client.exec_command(f"test -e {path} && echo 'exists' || echo 'not exists'")
+        path_exists = stdout.read().decode().strip() == 'exists'
+        
+        if not path_exists:
+            client.close()
+            return {"error": f"Путь {path} не существует"}
+        
+        # Проверяем, является ли путь директорией
+        stdin, stdout, stderr = client.exec_command(f"test -d {path} && echo 'directory' || echo 'file'")
+        is_directory = stdout.read().decode().strip() == 'directory'
+        
+        if not is_directory:
+            client.close()
+            return {"error": f"Путь {path} не является директорией"}
+        
         # Получаем список файлов с подробной информацией
-        stdin, stdout, stderr = client.exec_command(f"ls -la {path}")
+        # Используем ls -la с экранированием пробелов в пути
+        escaped_path = path.replace(' ', '\\ ')
+        stdin, stdout, stderr = client.exec_command(f"ls -la {escaped_path}")
         output = stdout.read().decode().strip()
         error = stderr.read().decode().strip()
         
         if error:
-            client.close()
-            return {"error": error}
+            # Если есть ошибка, пробуем использовать find для получения списка файлов
+            stdin, stdout, stderr = client.exec_command(f"find {escaped_path} -maxdepth 1 -printf '%M %u %g %s %TY-%Tm-%Td %TH:%TM %f\\n'")
+            output = stdout.read().decode().strip()
+            error = stderr.read().decode().strip()
+            
+            if error:
+                client.close()
+                return {"error": error}
         
-        # Парсим вывод ls -la
+        # Парсим вывод ls -la или find
         files = []
         lines = output.split('\n')
         
-        # Пропускаем первую строку (total)
+        # Пропускаем первую строку (total) если это вывод ls -la
         if lines and lines[0].startswith('total'):
             lines = lines[1:]
         
         for line in lines:
-            parts = line.split(None, 8)
-            if len(parts) >= 9:
-                permissions = parts[0]
-                size = parts[4]
-                date = f"{parts[5]} {parts[6]} {parts[7]}"
-                name = parts[8]
+            # Пропускаем пустые строки
+            if not line.strip():
+                continue
                 
-                # Пропускаем . и .. если это не корневая директория
-                if name in ['.', '..'] and path != '/':
-                    continue
-                
-                is_dir = permissions.startswith('d')
-                is_link = permissions.startswith('l')
-                
-                # Если это символическая ссылка, извлекаем имя файла
-                if is_link and ' -> ' in name:
-                    link_target = name.split(' -> ')[1]
-                    # Если ссылка указывает на путь, заканчивающийся на /, это директория
-                    if link_target.endswith('/'):
-                        is_dir = True
-                    name = name.split(' -> ')[0]
-                
-                # Дополнительная проверка для специа��ьных директорий
-                special_dirs = ["root", "sdk64", "steam", ".steam"]
-                if name in special_dirs and not is_dir:
+            # Парсим строку в зависимости от формата (ls -la или find)
+            if line.startswith('d') or line.startswith('-') or line.startswith('l'):
+                # Формат ls -la
+                parts = line.split(None, 8)
+                if len(parts) >= 9:
+                    permissions = parts[0]
+                    size = parts[4]
+                    date = f"{parts[5]} {parts[6]} {parts[7]}"
+                    name = parts[8]
+                    
+                    # Пропускаем . и .. если это не корневая директория
+                    if name in ['.', '..'] and path != '/':
+                        continue
+                    
+                    is_dir = permissions.startswith('d')
+                    is_link = permissions.startswith('l')
+                    
+                    # Если это символическая ссылка, извлекаем имя файла
+                    if is_link and ' -> ' in name:
+                        link_target = name.split(' -> ')[1]
+                        # Если ссылка указывает на путь, заканчивающийся на /, это директория
+                        if link_target.endswith('/'):
+                            is_dir = True
+                        name = name.split(' -> ')[0]
+                    
+                    # Дополнительная проверка для специальных директорий
+                    special_dirs = ["root", "sdk64", "steam", ".steam", "steamapps"]
+                    if name in special_dirs and not is_dir:
+                        # Проверяем, является ли это директорией
+                        full_path = f"{path}/{name}" if path != "/" else f"/{name}"
+                        full_path = full_path.replace(' ', '\\ ')
+                        stdin, stdout, stderr = client.exec_command(f"test -d {full_path} && echo 'yes' || echo 'no'")
+                        is_directory = stdout.read().decode().strip() == 'yes'
+                        if is_directory:
+                            is_dir = True
+                    
+                    files.append({
+                        "name": name,
+                        "is_dir": is_dir,
+                        "is_link": is_link,
+                        "size": size,
+                        "date": date,
+                        "permissions": permissions
+                    })
+            else:
+                # Формат find
+                parts = line.split(None, 6)
+                if len(parts) >= 7:
+                    permissions = parts[0]
+                    size = parts[3]
+                    date = f"{parts[4]} {parts[5]}"
+                    name = parts[6]
+                    
+                    # Пропускаем . и .. если это не корневая директория
+                    if name in ['.', '..'] and path != '/':
+                        continue
+                    
+                    is_dir = permissions.startswith('d')
+                    is_link = permissions.startswith('l')
+                    
+                    # Дополнительная проверка для специальных директорий
+                    special_dirs = ["root", "sdk64", "steam", ".steam", "steamapps"]
+                    if name in special_dirs and not is_dir:
+                        # Проверяем, является ли это директорией
+                        full_path = f"{path}/{name}" if path != "/" else f"/{name}"
+                        full_path = full_path.replace(' ', '\\ ')
+                        stdin, stdout, stderr = client.exec_command(f"test -d {full_path} && echo 'yes' || echo 'no'")
+                        is_directory = stdout.read().decode().strip() == 'yes'
+                        if is_directory:
+                            is_dir = True
+                    
+                    files.append({
+                        "name": name,
+                        "is_dir": is_dir,
+                        "is_link": is_link,
+                        "size": size,
+                        "date": date,
+                        "permissions": permissions
+                    })
+        
+        # Если список файлов пуст, пробуем использовать другой метод
+        if not files:
+            # Используем find с другими параметрами
+            stdin, stdout, stderr = client.exec_command(f"find {escaped_path} -maxdepth 1 -type f -o -type d | sort")
+            output = stdout.read().decode().strip()
+            
+            if output:
+                lines = output.split('\n')
+                for line in lines:
+                    if line == path:  # Пропускаем текущую директорию
+                        continue
+                    
+                    name = os.path.basename(line)
+                    full_path = line
+                    
                     # Проверяем, является ли это директорией
-                    full_path = f"{path}/{name}" if path != "/" else f"/{name}"
-                    stdin, stdout, stderr = client.exec_command(f"test -d {full_path} && echo 'yes' || echo 'no'")
-                    is_directory = stdout.read().decode().strip() == 'yes'
-                    if is_directory:
-                        is_dir = True
-                
-                files.append({
-                    "name": name,
-                    "is_dir": is_dir,
-                    "is_link": is_link,
-                    "size": size,
-                    "date": date,
-                    "permissions": permissions
-                })
+                    stdin, stdout, stderr = client.exec_command(f"test -d {full_path.replace(' ', '\\ ')} && echo 'yes' || echo 'no'")
+                    is_dir = stdout.read().decode().strip() == 'yes'
+                    
+                    # Проверяем, является ли это символической ссылкой
+                    stdin, stdout, stderr = client.exec_command(f"test -L {full_path.replace(' ', '\\ ')} && echo 'yes' || echo 'no'")
+                    is_link = stdout.read().decode().strip() == 'yes'
+                    
+                    # Получаем размер файла
+                    stdin, stdout, stderr = client.exec_command(f"stat -c '%s' {full_path.replace(' ', '\\ ')}")
+                    size = stdout.read().decode().strip()
+                    
+                    # Получаем дату модификации
+                    stdin, stdout, stderr = client.exec_command(f"stat -c '%y' {full_path.replace(' ', '\\ ')}")
+                    date = stdout.read().decode().strip()
+                    
+                    # Получаем права доступа
+                    stdin, stdout, stderr = client.exec_command(f"stat -c '%A' {full_path.replace(' ', '\\ ')}")
+                    permissions = stdout.read().decode().strip()
+                    
+                    files.append({
+                        "name": name,
+                        "is_dir": is_dir,
+                        "is_link": is_link,
+                        "size": size,
+                        "date": date,
+                        "permissions": permissions
+                    })
         
         client.close()
         return {"files": files, "path": path}

@@ -303,6 +303,43 @@
         .close {
             color: var(--text-color);
         }
+        
+        /* Стили для уведомлений */
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 350px;
+        }
+        
+        /* Стили для индикатора загрузки */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            border-radius: 5px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -462,6 +499,9 @@
                                 </div>
                                 
                                 <div class="file-browser">
+                                    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+                                        <div class="spinner"></div>
+                                    </div>
                                     <ul class="file-list" id="file-list">
                                         <!-- Файлы будут загружены через JavaScript -->
                                         <li class="file-item">
@@ -541,6 +581,24 @@
         </div>
     </div>
 
+    <!-- Модальное окно для ошибок -->
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="errorModalLabel">Ошибка</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="error-message"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -566,14 +624,17 @@
             const currentFile = document.getElementById('current-file');
             const fileContent = document.getElementById('file-content');
             const saveFileBtn = document.getElementById('save-file');
+            const loadingOverlay = document.getElementById('loading-overlay');
             
             // Модальные окна
             const createModal = new bootstrap.Modal(document.getElementById('createModal'));
             const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
             const createNameInput = document.getElementById('create-name');
             const confirmCreateBtn = document.getElementById('confirm-create');
             const deleteName = document.getElementById('delete-name');
             const confirmDeleteBtn = document.getElementById('confirm-delete');
+            const errorMessage = document.getElementById('error-message');
             
             // Переменные для хранения текущего пути и выбранного файла
             let currentPath = '/home/zokirjonovjavohir61';
@@ -595,10 +656,13 @@
                             statusText.textContent = 'Остановлен';
                         }
                     })
-                    .catch(error => console.error('Ошибка при получении статуса:', error));
+                    .catch(error => {
+                        console.error('Ошибка при получении статуса:', error);
+                        showErrorModal('Ошибка при получении статуса сервера');
+                    });
             }
 
-            // Функця для обновления логов
+            // Функция для обновления логов
             function updateLogs() {
                 fetch('/api/logs?lines=100')
                     .then(response => response.json())
@@ -612,18 +676,26 @@
                         });
                         logContainer.scrollTop = logContainer.scrollHeight;
                     })
-                    .catch(error => console.error('Ошибка при получении логов:', error));
+                    .catch(error => {
+                        console.error('Ошибка при получении логов:', error);
+                        showErrorModal('Ошибка при получении логов сервера');
+                    });
             }
             
             // Функция для загрузки списка файлов
             function loadFiles(path) {
+                // Показываем индикатор загрузки
+                loadingOverlay.style.display = 'flex';
                 fileList.innerHTML = '<li class="file-item"><i class="bi bi-hourglass"></i> Загрузка...</li>';
                 
                 fetch(`/api/files?path=${encodeURIComponent(path)}`)
                     .then(response => response.json())
                     .then(data => {
+                        // Скрываем индикатор загрузки
+                        loadingOverlay.style.display = 'none';
+                        
                         if (data.error) {
-                            showAlert(data.error, 'danger');
+                            showErrorModal(data.error);
                             return;
                         }
                         
@@ -631,6 +703,12 @@
                         updateBreadcrumb(currentPath);
                         
                         fileList.innerHTML = '';
+                        
+                        // Если список файлов пуст
+                        if (data.files.length === 0) {
+                            fileList.innerHTML = '<li class="file-item"><i class="bi bi-info-circle"></i> Папка пуста</li>';
+                            return;
+                        }
                         
                         // Добавляем ссылку на родительскую директорию, если мы не в корне
                         if (currentPath !== '/') {
@@ -650,7 +728,7 @@
                         });
                         
                         // Список известных директорий, которые могут быть неправильно определены
-                        const knownDirs = ["root", "sdk64", "steam", ".steam"];
+                        const knownDirs = ["root", "sdk64", "steam", ".steam", "steamapps", "common", "Counter-Strike Global Offensive"];
                         
                         sortedFiles.forEach(file => {
                             // Проверяем, является ли файл известной директорией
@@ -720,8 +798,11 @@
                         });
                     })
                     .catch(error => {
+                        // Скрываем индикатор загрузки
+                        loadingOverlay.style.display = 'none';
+                        
                         console.error('Ошибка при загрузке файлов:', error);
-                        showAlert('Ошибка при загрузке файлов', 'danger');
+                        showErrorModal('Ошибка при загрузке файлов. Попробуйте обновить страницу.');
                     });
             }
             
@@ -768,7 +849,12 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.error) {
-                            showAlert(data.error, 'danger');
+                            if (data.is_dir) {
+                                // Если это директория, открываем её
+                                loadFiles(path);
+                            } else {
+                                showErrorModal(data.error);
+                            }
                             return;
                         }
                         
@@ -780,7 +866,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при открытии файла:', error);
-                        showAlert('Ошибка при открытии файла', 'danger');
+                        showErrorModal('Ошибка при открытии файла');
                     });
             }
             
@@ -801,7 +887,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.error) {
-                            showAlert(data.error, 'danger');
+                            showErrorModal(data.error);
                             return;
                         }
                         
@@ -809,7 +895,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при сохранении файла:', error);
-                        showAlert('Ошибка при сохранении файла', 'danger');
+                        showErrorModal('Ошибка при сохранении файла');
                     });
             }
             
@@ -832,7 +918,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.error) {
-                            showAlert(data.error, 'danger');
+                            showErrorModal(data.error);
                             return;
                         }
                         
@@ -842,7 +928,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при создании файла/директории:', error);
-                        showAlert('Ошибка при создании файла/директории', 'danger');
+                        showErrorModal('Ошибка при создании файла/директории');
                     });
             }
             
@@ -863,7 +949,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.error) {
-                            showAlert(data.error, 'danger');
+                            showErrorModal(data.error);
                             return;
                         }
                         
@@ -873,7 +959,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при удалении файла/директории:', error);
-                        showAlert('Ошибка при удалении файла/директории', 'danger');
+                        showErrorModal('Ошибка при удалении файла/директории');
                     });
             }
 
@@ -896,6 +982,12 @@
                     setTimeout(() => alertDiv.remove(), 150);
                 }, 3000);
             }
+            
+            // Функция для отображения модального окна с ошибкой
+            function showErrorModal(message) {
+                errorMessage.textContent = message;
+                errorModal.show();
+            }
 
             // Запуск сервера
             startServerBtn.addEventListener('click', function() {
@@ -915,7 +1007,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при запуске сервера:', error);
-                        showAlert('Ошибка при запуске сервера', 'danger');
+                        showErrorModal('Ошибка при запуске сервера');
                     });
             });
 
@@ -937,7 +1029,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при остановке сервера:', error);
-                        showAlert('Ошибка при остановке сервера', 'danger');
+                        showErrorModal('Ошибка при остановке сервера');
                     });
             });
 
@@ -955,7 +1047,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при обновлении сервера:', error);
-                        showAlert('Ошибка при обновлении сервера', 'danger');
+                        showErrorModal('Ошибка при обновлении сервера');
                     });
             });
 
@@ -982,7 +1074,7 @@
                     })
                     .catch(error => {
                         console.error('Ошибка при отправке команды:', error);
-                        showAlert('Ошибка при отправке команды', 'danger');
+                        showErrorModal('Ошибка при отправке команды');
                     });
             }
 
@@ -1005,7 +1097,7 @@
                     })
                     .catch(err => {
                         console.error('Ошибка при копировании:', err);
-                        showAlert('Не удалось скопировать команду', 'danger');
+                        showErrorModal('Не удалось скопировать команду');
                     });
             });
             
