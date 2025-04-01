@@ -98,7 +98,7 @@ def get_logs(lines=100):
         return [f"Ошибка: {str(e)}"]
 
 def list_files(path=None):
-    """Получает список файлов и директорий по указанному пути"""
+    """Получает список файлов и директорий по указанному пути через SFTP"""
     if path is None:
         path = "/home/zokirjonovjavohir61"
     
@@ -107,6 +107,121 @@ def list_files(path=None):
         if not client:
             return {"error": "Ошибка подключения к серверу"}
         
+        # Используем SFTP для получения списка файлов
+        sftp = client.open_sftp()
+        
+        try:
+            # Проверяем, существует ли путь
+            try:
+                sftp.stat(path)
+            except FileNotFoundError:
+                sftp.close()
+                client.close()
+                return {"error": f"Путь {path} не существует"}
+            
+            # Получаем список файлов
+            files_list = sftp.listdir_attr(path)
+            
+            files = []
+            for file_attr in files_list:
+                # Пропускаем . и .. если это не корневая директория
+                if file_attr.filename in ['.', '..'] and path != '/':
+                    continue
+                
+                # Определяем тип файла
+                is_dir = False
+                is_link = False
+                
+                if stat.S_ISDIR(file_attr.st_mode):
+                    is_dir = True
+                elif stat.S_ISLNK(file_attr.st_mode):
+                    is_link = True
+                    
+                    # Проверяем, куда указывает ссылка
+                    try:
+                        link_path = os.path.join(path, file_attr.filename)
+                        target_path = sftp.readlink(link_path)
+                        
+                        # Если путь относительный, делаем его абсолютным
+                        if not target_path.startswith('/'):
+                            target_path = os.path.normpath(os.path.join(os.path.dirname(link_path), target_path))
+                        
+                        # Проверяем, является ли цель ссылки директорией
+                        try:
+                            target_attr = sftp.stat(target_path)
+                            if stat.S_ISDIR(target_attr.st_mode):
+                                is_dir = True
+                        except:
+                            pass
+                    except:
+                        pass
+                
+                # Список известных директорий, которые могут быть неправильно определены
+                special_dirs = ["root", "sdk64", "steam", ".steam", "steamapps", "common", "Counter-Strike Global Offensive"]
+                if file_attr.filename in special_dirs and not is_dir:
+                    # Проверяем, является ли это директорией
+                    try:
+                        full_path = os.path.join(path, file_attr.filename)
+                        sftp.stat(full_path)
+                        is_dir = True
+                    except:
+                        pass
+                
+                # Форматируем дату
+                mtime = time.localtime(file_attr.st_mtime)
+                date_str = time.strftime("%Y-%m-%d %H:%M", mtime)
+                
+                # Форматируем права доступа
+                mode = file_attr.st_mode
+                permissions = ""
+                
+                if is_dir:
+                    permissions += "d"
+                elif is_link:
+                    permissions += "l"
+                else:
+                    permissions += "-"
+                
+                # Права для владельца
+                permissions += "r" if mode & 0o400 else "-"
+                permissions += "w" if mode & 0o200 else "-"
+                permissions += "x" if mode & 0o100 else "-"
+                
+                # Права для группы
+                permissions += "r" if mode & 0o40 else "-"
+                permissions += "w" if mode & 0o20 else "-"
+                permissions += "x" if mode & 0o10 else "-"
+                
+                # Права для остальных
+                permissions += "r" if mode & 0o4 else "-"
+                permissions += "w" if mode & 0o2 else "-"
+                permissions += "x" if mode & 0o1 else "-"
+                
+                files.append({
+                    "name": file_attr.filename,
+                    "is_dir": is_dir,
+                    "is_link": is_link,
+                    "size": file_attr.st_size,
+                    "date": date_str,
+                    "permissions": permissions
+                })
+            
+            sftp.close()
+            client.close()
+            
+            return {"files": files, "path": path}
+        except Exception as e:
+            sftp.close()
+            
+            # Если SFTP не сработал, пробуем через обычную команду
+            return list_files_fallback(client, path)
+    except Exception as e:
+        print(f"Ошибка при получении списка файлов: {e}")
+        return {"error": str(e)}
+
+def list_files_fallback(client, path):
+    """Резервный метод получения списка файлов через команду ls"""
+    try:
         # Проверяем, существует ли путь
         stdin, stdout, stderr = client.exec_command(f"test -e {path} && echo 'exists' || echo 'not exists'")
         path_exists = stdout.read().decode().strip() == 'exists'
@@ -131,160 +246,69 @@ def list_files(path=None):
         error = stderr.read().decode().strip()
         
         if error:
-            # Если есть ошибка, пробуем использовать find для получения списка файлов
-            stdin, stdout, stderr = client.exec_command(f"find {escaped_path} -maxdepth 1 -printf '%M %u %g %s %TY-%Tm-%Td %TH:%TM %f\\n'")
-            output = stdout.read().decode().strip()
-            error = stderr.read().decode().strip()
-            
-            if error:
-                client.close()
-                return {"error": error}
+            client.close()
+            return {"error": error}
         
-        # Парсим вывод ls -la или find
+        # Парсим вывод ls -la
         files = []
         lines = output.split('\n')
         
-        # Пропускаем первую строку (total) если это вывод ls -la
+        # Пропускаем первую строку (total)
         if lines and lines[0].startswith('total'):
             lines = lines[1:]
         
         for line in lines:
-            # Пропускаем пустые строки
-            if not line.strip():
-                continue
+            parts = line.split(None, 8)
+            if len(parts) >= 9:
+                permissions = parts[0]
+                size = parts[4]
+                date = f"{parts[5]} {parts[6]} {parts[7]}"
+                name = parts[8]
                 
-            # Парсим строку в зависимости от формата (ls -la или find)
-            if line.startswith('d') or line.startswith('-') or line.startswith('l'):
-                # Формат ls -la
-                parts = line.split(None, 8)
-                if len(parts) >= 9:
-                    permissions = parts[0]
-                    size = parts[4]
-                    date = f"{parts[5]} {parts[6]} {parts[7]}"
-                    name = parts[8]
-                    
-                    # Пропускаем . и .. если это не корневая директория
-                    if name in ['.', '..'] and path != '/':
-                        continue
-                    
-                    is_dir = permissions.startswith('d')
-                    is_link = permissions.startswith('l')
-                    
-                    # Если это символическая ссылка, извлекаем имя файла
-                    if is_link and ' -> ' in name:
-                        link_target = name.split(' -> ')[1]
-                        # Если ссылка указывает на путь, заканчивающийся на /, это директория
-                        if link_target.endswith('/'):
-                            is_dir = True
-                        name = name.split(' -> ')[0]
-                    
-                    # Дополнительная проверка для специальных директорий
-                    special_dirs = ["root", "sdk64", "steam", ".steam", "steamapps"]
-                    if name in special_dirs and not is_dir:
-                        # Проверяем, является ли это директорией
-                        full_path = f"{path}/{name}" if path != "/" else f"/{name}"
-                        full_path = full_path.replace(' ', '\\ ')
-                        stdin, stdout, stderr = client.exec_command(f"test -d {full_path} && echo 'yes' || echo 'no'")
-                        is_directory = stdout.read().decode().strip() == 'yes'
-                        if is_directory:
-                            is_dir = True
-                    
-                    files.append({
-                        "name": name,
-                        "is_dir": is_dir,
-                        "is_link": is_link,
-                        "size": size,
-                        "date": date,
-                        "permissions": permissions
-                    })
-            else:
-                # Формат find
-                parts = line.split(None, 6)
-                if len(parts) >= 7:
-                    permissions = parts[0]
-                    size = parts[3]
-                    date = f"{parts[4]} {parts[5]}"
-                    name = parts[6]
-                    
-                    # Пропускаем . и .. если это не корневая директория
-                    if name in ['.', '..'] and path != '/':
-                        continue
-                    
-                    is_dir = permissions.startswith('d')
-                    is_link = permissions.startswith('l')
-                    
-                    # Дополнительная проверка для специальных директорий
-                    special_dirs = ["root", "sdk64", "steam", ".steam", "steamapps"]
-                    if name in special_dirs and not is_dir:
-                        # Проверяем, является ли это директорией
-                        full_path = f"{path}/{name}" if path != "/" else f"/{name}"
-                        full_path = full_path.replace(' ', '\\ ')
-                        stdin, stdout, stderr = client.exec_command(f"test -d {full_path} && echo 'yes' || echo 'no'")
-                        is_directory = stdout.read().decode().strip() == 'yes'
-                        if is_directory:
-                            is_dir = True
-                    
-                    files.append({
-                        "name": name,
-                        "is_dir": is_dir,
-                        "is_link": is_link,
-                        "size": size,
-                        "date": date,
-                        "permissions": permissions
-                    })
-        
-        # Если список файлов пуст, пробуем использовать другой метод
-        if not files:
-            # Используем find с другими параметрами
-            stdin, stdout, stderr = client.exec_command(f"find {escaped_path} -maxdepth 1 -type f -o -type d | sort")
-            output = stdout.read().decode().strip()
-            
-            if output:
-                lines = output.split('\n')
-                for line in lines:
-                    if line == path:  # Пропускаем текущую директорию
-                        continue
-                    
-                    name = os.path.basename(line)
-                    full_path = line
-                    
+                # Пропускаем . и .. если это не корневая директория
+                if name in ['.', '..'] and path != '/':
+                    continue
+                
+                is_dir = permissions.startswith('d')
+                is_link = permissions.startswith('l')
+                
+                # Если это символическая ссылка, извлекаем имя файла
+                if is_link and ' -> ' in name:
+                    link_target = name.split(' -> ')[1]
+                    # Если ссылка указывает на путь, заканчивающийся на /, это директория
+                    if link_target.endswith('/'):
+                        is_dir = True
+                    name = name.split(' -> ')[0]
+                
+                # Дополнительная проверка для специальных директорий
+                special_dirs = ["root", "sdk64", "steam", ".steam", "steamapps", "common", "Counter-Strike Global Offensive"]
+                if name in special_dirs and not is_dir:
                     # Проверяем, является ли это директорией
-                    stdin, stdout, stderr = client.exec_command(f"test -d {full_path.replace(' ', '\\ ')} && echo 'yes' || echo 'no'")
-                    is_dir = stdout.read().decode().strip() == 'yes'
-                    
-                    # Проверяем, является ли это символической ссылкой
-                    stdin, stdout, stderr = client.exec_command(f"test -L {full_path.replace(' ', '\\ ')} && echo 'yes' || echo 'no'")
-                    is_link = stdout.read().decode().strip() == 'yes'
-                    
-                    # Получаем размер файла
-                    stdin, stdout, stderr = client.exec_command(f"stat -c '%s' {full_path.replace(' ', '\\ ')}")
-                    size = stdout.read().decode().strip()
-                    
-                    # Получаем дату модификации
-                    stdin, stdout, stderr = client.exec_command(f"stat -c '%y' {full_path.replace(' ', '\\ ')}")
-                    date = stdout.read().decode().strip()
-                    
-                    # Получаем права доступа
-                    stdin, stdout, stderr = client.exec_command(f"stat -c '%A' {full_path.replace(' ', '\\ ')}")
-                    permissions = stdout.read().decode().strip()
-                    
-                    files.append({
-                        "name": name,
-                        "is_dir": is_dir,
-                        "is_link": is_link,
-                        "size": size,
-                        "date": date,
-                        "permissions": permissions
-                    })
+                    full_path = f"{path}/{name}" if path != "/" else f"/{name}"
+                    full_path = full_path.replace(' ', '\\ ')
+                    stdin, stdout, stderr = client.exec_command(f"test -d {full_path} && echo 'yes' || echo 'no'")
+                    is_directory = stdout.read().decode().strip() == 'yes'
+                    if is_directory:
+                        is_dir = True
+                
+                files.append({
+                    "name": name,
+                    "is_dir": is_dir,
+                    "is_link": is_link,
+                    "size": size,
+                    "date": date,
+                    "permissions": permissions
+                })
         
         client.close()
         return {"files": files, "path": path}
     except Exception as e:
-        print(f"Ошибка при получении списка файлов: {e}")
+        client.close()
+        print(f"Ошибка при получении списка файлов через fallback: {e}")
         return {"error": str(e)}
 
 def get_file_content(path):
-    """Получает содержимое файла"""
+    """Получает содержимое файла через SFTP"""
     try:
         client = get_ssh_client()
         if not client:
@@ -298,61 +322,107 @@ def get_file_content(path):
             client.close()
             return {"error": "Это директория, а не файл", "is_dir": True, "path": path}
         
-        # Проверяем, что это текстовый файл
-        stdin, stdout, stderr = client.exec_command(f"file -i {path}")
-        file_type = stdout.read().decode().strip()
-        
-        # Если это не текстовый файл, возвращаем ошибку
-        if "text/" not in file_type and "application/json" not in file_type and "application/xml" not in file_type:
+        # Используем SFTP для получения содержимого файла
+        try:
+            sftp = client.open_sftp()
+            
+            # Проверяем размер файла
+            file_stat = sftp.stat(path)
+            if file_stat.st_size > 10 * 1024 * 1024:  # Ограничение 10 МБ
+                sftp.close()
+                client.close()
+                return {"error": "Файл слишком большой для отображения"}
+            
+            # Открываем файл и читаем содержимое
+            with sftp.file(path, 'r') as f:
+                content = f.read().decode('utf-8', errors='replace')
+            
+            sftp.close()
             client.close()
-            return {"error": "Файл не является текстовым"}
-        
-        # Получаем содержимое файла
-        stdin, stdout, stderr = client.exec_command(f"cat {path}")
-        content = stdout.read().decode()
-        error = stderr.read().decode().strip()
-        
-        client.close()
-        
-        if error:
-            return {"error": error}
-        
-        return {"content": content, "path": path}
+            
+            return {"content": content, "path": path}
+        except UnicodeDecodeError:
+            # Если не удалось декодировать как текст
+            sftp.close()
+            client.close()
+            return {"error": "Файл не является текстовым или содержит некорректные символы"}
+        except Exception as e:
+            # Если SFTP не сработал, пробуем через обычную команду
+            if sftp:
+                sftp.close()
+            
+            # Проверяем, что это текстовый файл
+            stdin, stdout, stderr = client.exec_command(f"file -i {path}")
+            file_type = stdout.read().decode().strip()
+            
+            # Если это не текстовый файл, возвращаем ошибку
+            if "text/" not in file_type and "application/json" not in file_type and "application/xml" not in file_type:
+                client.close()
+                return {"error": "Файл не является текстовым"}
+            
+            # Получаем содержимое файла
+            stdin, stdout, stderr = client.exec_command(f"cat {path}")
+            content = stdout.read().decode('utf-8', errors='replace')
+            error = stderr.read().decode().strip()
+            
+            client.close()
+            
+            if error:
+                return {"error": error}
+            
+            return {"content": content, "path": path}
     except Exception as e:
         print(f"Ошибка при получении содержимого файла: {e}")
         return {"error": str(e)}
 
 def save_file_content(path, content):
-    """Сохраняет содержимое файла"""
+    """Сохраняет содержимое файла через SFTP"""
     try:
         client = get_ssh_client()
         if not client:
             return {"error": "Ошибка подключения к серверу"}
         
-        # Создаем временный файл на сервере
-        temp_file = f"/tmp/edit_{int(time.time())}.txt"
-        sftp = client.open_sftp()
-        
-        with sftp.file(temp_file, 'w') as f:
-            f.write(content)
-        
-        # Копируем временный файл в целевой файл
-        stdin, stdout, stderr = client.exec_command(f"cat {temp_file} > {path} && rm {temp_file}")
-        error = stderr.read().decode().strip()
-        
-        sftp.close()
-        client.close()
-        
-        if error:
-            return {"error": error}
-        
-        return {"success": True, "message": "Файл успешно сохранен"}
+        try:
+            # Используем SFTP для сохранения файла
+            sftp = client.open_sftp()
+            
+            # Открываем файл и записываем содержимое
+            with sftp.file(path, 'w') as f:
+                f.write(content)
+            
+            sftp.close()
+            client.close()
+            
+            return {"success": True, "message": "Файл успешно сохранен"}
+        except Exception as e:
+            # Если SFTP не сработал, пробуем через обычную команду
+            if sftp:
+                sftp.close()
+            
+            # Создаем временный файл на сервере
+            temp_file = f"/tmp/edit_{int(time.time())}.txt"
+            sftp = client.open_sftp()
+            
+            with sftp.file(temp_file, 'w') as f:
+                f.write(content)
+            
+            # Копируем временный файл в целевой файл
+            stdin, stdout, stderr = client.exec_command(f"cat {temp_file} > {path} && rm {temp_file}")
+            error = stderr.read().decode().strip()
+            
+            sftp.close()
+            client.close()
+            
+            if error:
+                return {"error": error}
+            
+            return {"success": True, "message": "Файл успешно сохранен"}
     except Exception as e:
         print(f"Ошибка при сохранении файла: {e}")
         return {"error": str(e)}
 
 def create_file_or_directory(path, name, is_dir=False):
-    """Создает файл или директорию"""
+    """Создает файл или директорию через SFTP"""
     try:
         client = get_ssh_client()
         if not client:
@@ -360,45 +430,98 @@ def create_file_or_directory(path, name, is_dir=False):
         
         full_path = os.path.join(path, name).replace('\\', '/')
         
-        if is_dir:
-            command = f"mkdir -p {full_path}"
-        else:
-            command = f"touch {full_path}"
-        
-        stdin, stdout, stderr = client.exec_command(command)
-        error = stderr.read().decode().strip()
-        
-        client.close()
-        
-        if error:
-            return {"error": error}
-        
-        return {"success": True, "message": f"{'Директория' if is_dir else 'Файл'} успешно создан(а)"}
+        try:
+            # Используем SFTP для создания файла/директории
+            sftp = client.open_sftp()
+            
+            if is_dir:
+                # Для создания директории используем команду mkdir
+                stdin, stdout, stderr = client.exec_command(f"mkdir -p {full_path}")
+                error = stderr.read().decode().strip()
+                
+                if error:
+                    sftp.close()
+                    client.close()
+                    return {"error": error}
+            else:
+                # Для создания файла используем touch через SFTP
+                with sftp.file(full_path, 'w'):
+                    pass
+            
+            sftp.close()
+            client.close()
+            
+            return {"success": True, "message": f"{'Директория' if is_dir else 'Файл'} успешно создан(а)"}
+        except Exception as e:
+            # Если SFTP не сработал, пробуем через обычную команду
+            if sftp:
+                sftp.close()
+            
+            if is_dir:
+                command = f"mkdir -p {full_path}"
+            else:
+                command = f"touch {full_path}"
+            
+            stdin, stdout, stderr = client.exec_command(command)
+            error = stderr.read().decode().strip()
+            
+            client.close()
+            
+            if error:
+                return {"error": error}
+            
+            return {"success": True, "message": f"{'Директория' if is_dir else 'Файл'} успешно создан(а)"}
     except Exception as e:
         print(f"Ошибка при создании файла/директории: {e}")
         return {"error": str(e)}
 
 def delete_file_or_directory(path, is_dir=False):
-    """Удаляет файл или директорию"""
+    """Удаляет файл или директорию через SFTP"""
     try:
         client = get_ssh_client()
         if not client:
             return {"error": "Ошибка подключения к серверу"}
         
-        if is_dir:
-            command = f"rm -rf {path}"
-        else:
-            command = f"rm {path}"
-        
-        stdin, stdout, stderr = client.exec_command(command)
-        error = stderr.read().decode().strip()
-        
-        client.close()
-        
-        if error:
-            return {"error": error}
-        
-        return {"success": True, "message": f"{'Директория' if is_dir else 'Файл'} успешно удален(а)"}
+        try:
+            # Используем SFTP для удаления файла/директории
+            sftp = client.open_sftp()
+            
+            if is_dir:
+                # Для удаления директории используем команду rm -rf
+                stdin, stdout, stderr = client.exec_command(f"rm -rf {path}")
+                error = stderr.read().decode().strip()
+                
+                if error:
+                    sftp.close()
+                    client.close()
+                    return {"error": error}
+            else:
+                # Для удаления файла используем unlink ��ерез SFTP
+                sftp.unlink(path)
+            
+            sftp.close()
+            client.close()
+            
+            return {"success": True, "message": f"{'Директория' if is_dir else 'Файл'} успешно удален(а)"}
+        except Exception as e:
+            # Если SFTP не сработал, пробуем через обычную команду
+            if sftp:
+                sftp.close()
+            
+            if is_dir:
+                command = f"rm -rf {path}"
+            else:
+                command = f"rm {path}"
+            
+            stdin, stdout, stderr = client.exec_command(command)
+            error = stderr.read().decode().strip()
+            
+            client.close()
+            
+            if error:
+                return {"error": error}
+            
+            return {"success": True, "message": f"{'Директория' if is_dir else 'Файл'} успешно удален(а)"}
     except Exception as e:
         print(f"Ошибка при удалении файла/директории: {e}")
         return {"error": str(e)}

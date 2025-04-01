@@ -149,6 +149,7 @@
             overflow-y: auto;
             background-color: #0d0d0d;
             border-radius: 5px;
+            position: relative;
         }
         
         .file-list {
@@ -340,6 +341,16 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Стили для кнопок быстрого доступа */
+        .quick-access {
+            margin-bottom: 15px;
+        }
+        
+        .quick-access .btn {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -483,9 +494,19 @@
                                 </div>
                             </div>
                             <div class="card-body">
+                                <!-- Кнопки быстрого доступа -->
+                                <div class="quick-access">
+                                    <button class="btn btn-sm btn-outline-primary quick-path" data-path="/home/zokirjonovjavohir61">
+                                        <i class="bi bi-house"></i> Домашняя директория
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary quick-path" data-path="/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive">
+                                        <i class="bi bi-controller"></i> CS2
+                                    </button>
+                                </div>
+                                
                                 <nav aria-label="breadcrumb">
                                     <ol class="breadcrumb" id="file-path">
-                                        <li class="breadcrumb-item"><a href="#" data-path="/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive">CS2</a></li>
+                                        <li class="breadcrumb-item"><a href="#" data-path="/home/zokirjonovjavohir61">Home</a></li>
                                     </ol>
                                 </nav>
                                 
@@ -625,6 +646,7 @@
             const fileContent = document.getElementById('file-content');
             const saveFileBtn = document.getElementById('save-file');
             const loadingOverlay = document.getElementById('loading-overlay');
+            const quickPathBtns = document.querySelectorAll('.quick-path');
             
             // Модальные окна
             const createModal = new bootstrap.Modal(document.getElementById('createModal'));
@@ -636,8 +658,8 @@
             const confirmDeleteBtn = document.getElementById('confirm-delete');
             const errorMessage = document.getElementById('error-message');
             
-            // Изменим переменную для хранения текущего пути в начале скрипта
-            let currentPath = '/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive';
+            // Переменные для хранения текущего пути и выбранного файла
+            let currentPath = '/home/zokirjonovjavohir61';
             let selectedFile = null;
             let isCreatingDir = false;
             let fileToDelete = null;
@@ -1109,6 +1131,13 @@
                 });
             });
             
+            // Обработчики для кнопок быстрого доступа к путям
+            quickPathBtns.forEach(button => {
+                button.addEventListener('click', function() {
+                    loadFiles(this.dataset.path);
+                });
+            });
+            
             // Обработчики для файлового менеджера
             refreshFilesBtn.addEventListener('click', () => loadFiles(currentPath));
             
@@ -1137,23 +1166,26 @@
                 loadFiles(currentPath);
             });
 
-            // Изменим обработчик загрузки файлов при инициализации
+            // Автоматическое обновление статуса и логов каждые 30 секунд
+            setInterval(() => {
+                updateServerStatus();
+                
+                // Обновляем логи только если активна вкладка логов
+                if (document.getElementById('logs-tab').classList.contains('active')) {
+                    updateLogs();
+                }
+            }, 30000);
+
+            // Инициализация: обновляем статус сервера и логи
+            updateServerStatus();
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
             // Загружаем файлы при первом открытии вкладки
             document.getElementById('files-tab').addEventListener('click', function() {
                 if (!fileList.querySelector('.file-item') || fileList.querySelector('.file-item').textContent.includes('Загрузка')) {
-                    loadFiles('/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive');
+                    loadFiles(currentPath);
                 }
             });
-
-            // Добавим автоматическую загрузку файлов при инициализации страницы
-            // Инициализация: обновляем статус сервера, логи и загружаем файлы
-            updateServerStatus();
-            logContainer.scrollTop = logContainer.scrollHeight;
-
-            // Автоматически загружаем файлы при загрузке страницы
-            setTimeout(() => {
-                loadFiles('/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive');
-            }, 500);
         });
     </script>
 </body>
