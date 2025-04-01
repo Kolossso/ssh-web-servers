@@ -7,6 +7,7 @@ import threading
 import logging
 from datetime import datetime
 import re
+import io
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -17,12 +18,13 @@ SSH_HOST = os.environ.get('SSH_HOST', '34.88.223.194')
 SSH_PORT = int(os.environ.get('SSH_PORT', 22))
 SSH_USER = os.environ.get('SSH_USER', 'zokirjonovjavohir61')
 SSH_KEY_PATH = os.environ.get('SSH_KEY_PATH', 'id_rsa')
+SSH_PRIVATE_KEY = os.environ.get('SSH_PRIVATE_KEY', None)
 LOG_FILE_PATH = "/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike\\ Global\\ Offensive/game/bin/linuxsteamrt64/cs2_log.txt"
 
 # Конфигурация Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
 # Глобальные переменные
 ssh_client = None
@@ -36,16 +38,27 @@ def get_ssh_client():
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
-        # Пробуем загрузить ключ
+        # Пробуем загрузить ключ из переменной окружения
+        if SSH_PRIVATE_KEY:
+            try:
+                key_file = io.StringIO(SSH_PRIVATE_KEY)
+                key = paramiko.RSAKey.from_private_key(key_file)
+                client.connect(SSH_HOST, port=SSH_PORT, username=SSH_USER, pkey=key)
+                return client
+            except Exception as e:
+                logger.error(f"Ошибка при подключении с ключом из переменной окружения: {e}")
+        
+        # Пробуем загрузить ключ из файла
         try:
             key = paramiko.RSAKey.from_private_key_file(SSH_KEY_PATH)
             client.connect(SSH_HOST, port=SSH_PORT, username=SSH_USER, pkey=key)
+            return client
         except Exception as e:
-            logger.error(f"Ошибка при подключении с ключом: {e}")
-            # Если не удалось подключиться с ключом, пробуем без него
-            # (для тестирования или если ключ добавлен в authorized_keys)
-            client.connect(SSH_HOST, port=SSH_PORT, username=SSH_USER)
+            logger.error(f"Ошибка при подключении с ключом из файла: {e}")
             
+        # Если не удалось подключиться с ключом, пробуем без него
+        # (для тестирования или если ключ добавлен в authorized_keys)
+        client.connect(SSH_HOST, port=SSH_PORT, username=SSH_USER)
         return client
     except Exception as e:
         logger.error(f"Ошибка SSH подключения: {e}")
@@ -161,7 +174,7 @@ def update_cs2_server():
 def index():
     """Главная страница"""
     status = get_server_status()
-    return render_template('index.html', status=status)
+    return render_template('index.html', status=status, SSH_HOST=SSH_HOST)
 
 @app.route('/api/status')
 def api_status():
@@ -225,5 +238,5 @@ def api_clear_logs():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
 
