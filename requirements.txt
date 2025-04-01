@@ -1,10 +1,4 @@
 aiogram
 flask==2.3.3
-flask-socketio==5.3.5
 paramiko==3.3.1
-python-dotenv==1.0.0
-gunicorn==21.2.0
-gevent==23.9.1
-gevent-websocket==0.10.1
-setuptools>=65.5.0
 

@@ -229,7 +229,7 @@
                         }, 2000);
                     })
                     .catch(error => {
-                        console.error('Ошибка при запуске сервера:', error);
+                        console.error('��шибка при запуске сервера:', error);
                         showAlert('Ошибка при запуске сервера', 'danger');
                     });
             });
@@ -313,6 +313,7 @@
 
             // Копирование команды подключения
             copyConnectBtn.addEventListener('click', function() {
+                const connectCommand = `connect ${serverHost}:27015`;  function() {
                 const connectCommand = `connect ${serverHost}:27015`;
                 navigator.clipboard.writeText(connectCommand)
                     .then(() => {

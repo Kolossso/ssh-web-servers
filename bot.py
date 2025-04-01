@@ -1,9 +1,33 @@
 import logging
 import paramiko
 import asyncio
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonCommands
 from aiogram.filters import Command
+
+# Запускаем веб-сервер в отдельном потоке
+import threading
+import subprocess
+
+def run_web_server():
+    try:
+        # Проверяем, запущен ли уже веб-сервер
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex(('127.0.0.1', 5000))
+        sock.close()
+        
+        if result != 0:  # Порт не занят, можно запускать сервер
+            subprocess.Popen(["python", "server.py"])
+            print("Веб-сервер запущен")
+    except Exception as e:
+        print(f"Ошибка при запуске веб-сервера: {e}")
+
+# Запускаем веб-сервер в отдельном потоке
+web_thread = threading.Thread(target=run_web_server)
+web_thread.daemon = True
+web_thread.start()
 
 # 🔐 ДАННЫЕ ДЛЯ ПОДКЛЮЧЕНИЯ
 TOKEN = "7056307221:AAG3hT2Vyn5AXaMTWrqr0JvaxXHks_4KkVk"
@@ -23,6 +47,7 @@ menu_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🛑 Остановить сервер", callback_data="stop_server")],
     [InlineKeyboardButton(text="🔄 Обновить сервер", callback_data="update_server")],
     [InlineKeyboardButton(text="📡 Статус сервера", callback_data="server_status")],
+    [InlineKeyboardButton(text="🌐 Веб-интерфейс", url=f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'your-app.up.railway.app')}")],
 ])
 
 async def set_bot_commands():
@@ -32,13 +57,14 @@ async def set_bot_commands():
         types.BotCommand(command="stop", description="Остановить сервер"),
         types.BotCommand(command="update", description="Обновить сервер"),
         types.BotCommand(command="status", description="Проверить статус сервера"),
-        types.BotCommand(command="cmd", description="Команды для КС2")
+        types.BotCommand(command="cmd", description="Команды для КС2"),
+        types.BotCommand(command="web", description="Получить ссылку на веб-интерфейс")
     ]
     await bot.set_my_commands(commands)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 def execute_ssh_command(command):
-    """ Выполняет команду на сервере по SSH """
+    """ Выполняет ком��нду на сервере по SSH """
     try:
         key = paramiko.RSAKey.from_private_key_file(SSH_KEY_PATH)
         client = paramiko.SSHClient()
@@ -62,6 +88,15 @@ async def start(message: types.Message):
         await message.answer("⛔ У тебя нет прав на управление сервером.")
         return
     await message.answer("👋 Привет! Управляй сервером с помощью кнопок:", reply_markup=menu_keyboard)
+
+@dp.message(Command("web"))
+async def web_interface(message: types.Message):
+    if message.from_user.id not in AUTHORIZED_USERS:
+        await message.answer("⛔ У тебя нет прав на управление сервером.")
+        return
+    
+    domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'your-app.up.railway.app')
+    await message.answer(f"🌐 Веб-интерфейс доступен по адресу:\nhttps://{domain}")
 
 @dp.callback_query(lambda c: c.data == "run_server")
 async def run_server(callback: types.CallbackQuery):
@@ -148,3 +183,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
