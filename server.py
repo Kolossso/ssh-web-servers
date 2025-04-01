@@ -165,6 +165,14 @@ def get_file_content(path):
         if not client:
             return {"error": "Ошибка подключения к серверу"}
         
+        # Сначала проверяем, является ли путь директорией
+        stdin, stdout, stderr = client.exec_command(f"test -d {path} && echo 'directory' || echo 'file'")
+        path_type = stdout.read().decode().strip()
+        
+        if path_type == 'directory':
+            client.close()
+            return {"error": "Это директория, а не файл"}
+        
         # Проверяем, что это текстовый файл
         stdin, stdout, stderr = client.exec_command(f"file -i {path}")
         file_type = stdout.read().decode().strip()

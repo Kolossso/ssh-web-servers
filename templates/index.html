@@ -598,7 +598,7 @@
                     .catch(error => console.error('Ошибка при получении статуса:', error));
             }
 
-            // Функц��я для обновления логов
+            // Функця для обновления логов
             function updateLogs() {
                 fetch('/api/logs?lines=100')
                     .then(response => response.json())
@@ -680,7 +680,22 @@
                                 if (file.is_dir) {
                                     loadFiles(`${currentPath}/${file.name}`);
                                 } else {
-                                    openFile(`${currentPath}/${file.name}`);
+                                    // Проверяем, может ли это быть директорией, которую не распознали
+                                    fetch(`/api/files?path=${encodeURIComponent(`${currentPath}/${file.name}`)}`)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (!data.error) {
+                                                // Если запрос успешен, значит это директория
+                                                loadFiles(`${currentPath}/${file.name}`);
+                                            } else {
+                                                // Иначе открываем как файл
+                                                openFile(`${currentPath}/${file.name}`);
+                                            }
+                                        })
+                                        .catch(error => {
+                                            // При ошибке пытаемся открыть как файл
+                                            openFile(`${currentPath}/${file.name}`);
+                                        });
                                 }
                             });
                             
