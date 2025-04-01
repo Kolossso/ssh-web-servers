@@ -454,7 +454,7 @@ def api_command():
 @app.route('/api/files')
 def api_files():
     """API для получения списка файлов"""
-    path = request.args.get('path', '/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive/')
+    path = request.args.get('path', '/home/zokirjonovjavohir61')
     result = list_files(path)
     return jsonify(result)
 
