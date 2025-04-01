@@ -649,7 +649,15 @@
                             return a.name.localeCompare(b.name);
                         });
                         
+                        // Список известных директорий, которые могут быть неправильно определены
+                        const knownDirs = ["root", "sdk64", "steam", ".steam"];
+                        
                         sortedFiles.forEach(file => {
+                            // Проверяем, является ли файл известной директорией
+                            if (knownDirs.includes(file.name) && !file.is_dir) {
+                                file.is_dir = true; // Принудительно помечаем как директорию
+                            }
+                            
                             const item = document.createElement('li');
                             item.className = `file-item ${file.is_dir ? 'directory' : 'file'}`;
                             
@@ -681,11 +689,11 @@
                                     loadFiles(`${currentPath}/${file.name}`);
                                 } else {
                                     // Проверяем, может ли это быть директорией, которую не распознали
-                                    fetch(`/api/files?path=${encodeURIComponent(`${currentPath}/${file.name}`)}`)
+                                    fetch(`/api/file/content?path=${encodeURIComponent(`${currentPath}/${file.name}`)}`)
                                         .then(response => response.json())
                                         .then(data => {
-                                            if (!data.error) {
-                                                // Если запрос успешен, значит это директория
+                                            if (data.error && data.is_dir) {
+                                                // Если это директория, открываем её
                                                 loadFiles(`${currentPath}/${file.name}`);
                                             } else {
                                                 // Иначе открываем как файл

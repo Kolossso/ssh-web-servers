@@ -141,7 +141,21 @@ def list_files(path=None):
                 
                 # Если это символическая ссылка, извлекаем имя файла
                 if is_link and ' -> ' in name:
+                    link_target = name.split(' -> ')[1]
+                    # Если ссылка указывает на путь, заканчивающийся на /, это директория
+                    if link_target.endswith('/'):
+                        is_dir = True
                     name = name.split(' -> ')[0]
+                
+                # Дополнительная проверка для специа��ьных директорий
+                special_dirs = ["root", "sdk64", "steam", ".steam"]
+                if name in special_dirs and not is_dir:
+                    # Проверяем, является ли это директорией
+                    full_path = f"{path}/{name}" if path != "/" else f"/{name}"
+                    stdin, stdout, stderr = client.exec_command(f"test -d {full_path} && echo 'yes' || echo 'no'")
+                    is_directory = stdout.read().decode().strip() == 'yes'
+                    if is_directory:
+                        is_dir = True
                 
                 files.append({
                     "name": name,
@@ -171,7 +185,7 @@ def get_file_content(path):
         
         if path_type == 'directory':
             client.close()
-            return {"error": "Это директория, а не файл"}
+            return {"error": "Это директория, а не файл", "is_dir": True, "path": path}
         
         # Проверяем, что это текстовый файл
         stdin, stdout, stderr = client.exec_command(f"file -i {path}")
