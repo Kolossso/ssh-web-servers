@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 Server Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-dark text-light">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Боковая панель -->
+            <div class="col-md-3 col-lg-2 sidebar p-3">
+                <h3 class="text-center mb-4">
+                    <i class="bi bi-terminal"></i> CS2 Server
+                </h3>
+                <div class="server-status mb-4">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-body">
+                            <h5 class="card-title">Статус сервера</h5>
+                            <div id="status-indicator" class="d-flex align-items-center">
+                                <div id="status-light" class="status-light {{ 'status-on' if status == 'running' else 'status-off' }}"></div>
+                                <span id="status-text" class="ms-2">{{ 'Запущен' if status == 'running' else 'Остановлен' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="server-controls mb-4">
+                    <button id="start-server" class="btn btn-success w-100 mb-2">
+                        <i class="bi bi-play-fill"></i> Запустить сервер
+                    </button>
+                    <button id="stop-server" class="btn btn-danger w-100 mb-2">
+                        <i class="bi bi-stop-fill"></i> Остановить сервер
+                    </button>
+                    <button id="update-server" class="btn btn-warning w-100 mb-2">
+                        <i class="bi bi-arrow-repeat"></i> Обновить сервер
+                    </button>
+                    <button id="clear-logs" class="btn btn-secondary w-100">
+                        <i class="bi bi-trash"></i> Очистить логи
+                    </button>
+                </div>
+                <div class="server-command mb-4">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-body">
+                            <h5 class="card-title">Отправить команду</h5>
+                            <div class="input-group">
+                                <input type="text" id="command-input" class="form-control bg-dark text-light border-secondary" placeholder="Введите команду">
+                                <button id="send-command" class="btn btn-outline-secondary">
+                                    <i class="bi bi-send"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="server-info">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-body">
+                            <h5 class="card-title">Информация о сервере</h5>
+                            <p class="mb-1"><strong>IP:</strong> <span id="server-ip">{{ SSH_HOST }}</span></p>
+                            <p class="mb-1"><strong>Порт:</strong> <span>27015</span></p>
+                            <div class="d-grid gap-2 mt-3">
+                                <button id="copy-connect" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-clipboard"></i> Скопировать команду подключения
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Основной контент -->
+            <div class="col-md-9 col-lg-10 main-content p-3">
+                <div class="card bg-dark border-secondary mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-file-text"></i> Логи сервера
+                        </h5>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="auto-scroll" checked>
+                            <label class="form-check-label" for="auto-scroll">Автопрокрутка</label>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="log-container" class="log-container">
+                            <div id="log-content" class="log-content p-3">
+                                <div class="text-center text-muted py-5">
+                                    <i class="bi bi-hourglass-split fs-1"></i>
+                                    <p class="mt-3">Загрузка логов...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-info-circle"></i> Справка
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>Основные команды CS2 сервера:</h6>
+                        <ul class="command-list">
+                            <li><code>status</code> - Показать статус сервера и список игроков</li>
+                            <li><code>map &lt;название карты&gt;</code> - Сменить карту</li>
+                            <li><code>exec &lt;название конфига&gt;</code> - Выполнить конфиг</li>
+                            <li><code>sv_cheats 1</code> - Включить читы на сервере</li>
+                            <li><code>mp_restartgame 1</code> - Перезапустить игру</li>
+                        </ul>
+                        <p class="text-muted small">Для получения дополнительной информации о командах, посетите <a href="https://developer.valvesoftware.com/wiki/Counter-Strike_2/Console_Commands" target="_blank" class="text-info">документацию Valve</a>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
+
