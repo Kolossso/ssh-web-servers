@@ -485,7 +485,7 @@
                             <div class="card-body">
                                 <nav aria-label="breadcrumb">
                                     <ol class="breadcrumb" id="file-path">
-                                        <li class="breadcrumb-item"><a href="#" data-path="/home/zokirjonovjavohir61">Home</a></li>
+                                        <li class="breadcrumb-item"><a href="#" data-path="/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive">CS2</a></li>
                                     </ol>
                                 </nav>
                                 
@@ -636,8 +636,8 @@
             const confirmDeleteBtn = document.getElementById('confirm-delete');
             const errorMessage = document.getElementById('error-message');
             
-            // Переменные для хранения текущего пути и выбранного файла
-            let currentPath = '/home/zokirjonovjavohir61';
+            // Изменим переменную для хранения текущего пути в начале скрипта
+            let currentPath = '/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive';
             let selectedFile = null;
             let isCreatingDir = false;
             let fileToDelete = null;
@@ -1137,26 +1137,23 @@
                 loadFiles(currentPath);
             });
 
-            // Автоматическое обновление статуса и логов каждые 30 секунд
-            setInterval(() => {
-                updateServerStatus();
-                
-                // Обновляем логи только если активна вкладка логов
-                if (document.getElementById('logs-tab').classList.contains('active')) {
-                    updateLogs();
-                }
-            }, 30000);
-
-            // Инициализация: обновляем статус сервера и логи
-            updateServerStatus();
-            logContainer.scrollTop = logContainer.scrollHeight;
-            
+            // Изменим обработчик загрузки файлов при инициализации
             // Загружаем файлы при первом открытии вкладки
             document.getElementById('files-tab').addEventListener('click', function() {
                 if (!fileList.querySelector('.file-item') || fileList.querySelector('.file-item').textContent.includes('Загрузка')) {
-                    loadFiles(currentPath);
+                    loadFiles('/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive');
                 }
             });
+
+            // Добавим автоматическую загрузку файлов при инициализации страницы
+            // Инициализация: обновляем статус сервера, логи и загружаем файлы
+            updateServerStatus();
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            // Автоматически загружаем файлы при загрузке страницы
+            setTimeout(() => {
+                loadFiles('/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike Global Offensive');
+            }, 500);
         });
     </script>
 </body>
