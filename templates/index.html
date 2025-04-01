@@ -5,120 +5,320 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CS2 Server Monitor</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background-color: #1e1e1e;
+            border-color: #333;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid #333;
+        }
+        .log-container {
+            height: 500px;
+            overflow-y: auto;
+            background-color: #0d0d0d;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #b0b0b0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .status-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-on {
+            background-color: #28a745;
+            box-shadow: 0 0 10px #28a745;
+        }
+        .status-off {
+            background-color: #dc3545;
+            box-shadow: 0 0 10px #dc3545;
+        }
+        .btn-dark {
+            background-color: #2d2d2d;
+            border-color: #444;
+        }
+        .btn-dark:hover {
+            background-color: #444;
+            border-color: #555;
+        }
+        .form-control {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #444;
+        }
+        .form-control:focus {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #666;
+            box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.1);
+        }
+    </style>
 </head>
-<body class="bg-dark text-light">
-    <div class="container-fluid">
+<body>
+    <div class="container">
+        <h1 class="text-center my-4">CS2 Server Monitor</h1>
+        
         <div class="row">
-            <!-- Боковая панель -->
-            <div class="col-md-3 col-lg-2 sidebar p-3">
-                <h3 class="text-center mb-4">
-                    <i class="bi bi-terminal"></i> CS2 Server
-                </h3>
-                <div class="server-status mb-4">
-                    <div class="card bg-dark border-secondary">
-                        <div class="card-body">
-                            <h5 class="card-title">Статус сервера</h5>
-                            <div id="status-indicator" class="d-flex align-items-center">
-                                <div id="status-light" class="status-light {{ 'status-on' if status == 'running' else 'status-off' }}"></div>
-                                <span id="status-text" class="ms-2">{{ 'Запущен' if status == 'running' else 'Остановлен' }}</span>
-                            </div>
+            <!-- Левая колонка - управление сервером -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Статус сервера</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div id="status-light" class="status-light {{ 'status-on' if status == 'running' else 'status-off' }} me-2"></div>
+                            <span id="status-text">{{ 'Запущен' if status == 'running' else 'Остановлен' }}</span>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button id="start-server" class="btn btn-success">Запустить сервер</button>
+                            <button id="stop-server" class="btn btn-danger">Остановить сервер</button>
+                            <button id="update-server" class="btn btn-warning">Обновить сервер</button>
+                            <button id="refresh-logs" class="btn btn-info">Обновить логи</button>
                         </div>
                     </div>
                 </div>
-                <div class="server-controls mb-4">
-                    <button id="start-server" class="btn btn-success w-100 mb-2">
-                        <i class="bi bi-play-fill"></i> Запустить сервер
-                    </button>
-                    <button id="stop-server" class="btn btn-danger w-100 mb-2">
-                        <i class="bi bi-stop-fill"></i> Остановить сервер
-                    </button>
-                    <button id="update-server" class="btn btn-warning w-100 mb-2">
-                        <i class="bi bi-arrow-repeat"></i> Обновить сервер
-                    </button>
-                    <button id="clear-logs" class="btn btn-secondary w-100">
-                        <i class="bi bi-trash"></i> Очистить логи
-                    </button>
-                </div>
-                <div class="server-command mb-4">
-                    <div class="card bg-dark border-secondary">
-                        <div class="card-body">
-                            <h5 class="card-title">Отправить команду</h5>
-                            <div class="input-group">
-                                <input type="text" id="command-input" class="form-control bg-dark text-light border-secondary" placeholder="Введите команду">
-                                <button id="send-command" class="btn btn-outline-secondary">
-                                    <i class="bi bi-send"></i>
-                                </button>
-                            </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Отправить команду</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" id="command-input" class="form-control" placeholder="Введите команду">
+                            <button id="send-command" class="btn btn-dark">Отправить</button>
                         </div>
                     </div>
                 </div>
-                <div class="server-info">
-                    <div class="card bg-dark border-secondary">
-                        <div class="card-body">
-                            <h5 class="card-title">Информация о сервере</h5>
-                            <p class="mb-1"><strong>IP:</strong> <span id="server-ip">{{ SSH_HOST }}</span></p>
-                            <p class="mb-1"><strong>Порт:</strong> <span>27015</span></p>
-                            <div class="d-grid gap-2 mt-3">
-                                <button id="copy-connect" class="btn btn-sm btn-outline-info">
-                                    <i class="bi bi-clipboard"></i> Скопировать команду подключения
-                                </button>
-                            </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Информация о сервере</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>IP:</strong> {{ host }}</p>
+                        <p><strong>Порт:</strong> 27015</p>
+                        <div class="d-grid">
+                            <button id="copy-connect" class="btn btn-dark">
+                                Скопировать команду подключения
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Основной контент -->
-            <div class="col-md-9 col-lg-10 main-content p-3">
-                <div class="card bg-dark border-secondary mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="bi bi-file-text"></i> Логи сервера
-                        </h5>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="auto-scroll" checked>
-                            <label class="form-check-label" for="auto-scroll">Автопрокрутка</label>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        <div id="log-container" class="log-container">
-                            <div id="log-content" class="log-content p-3">
-                                <div class="text-center text-muted py-5">
-                                    <i class="bi bi-hourglass-split fs-1"></i>
-                                    <p class="mt-3">Загрузка логов...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="card bg-dark border-secondary">
+            <!-- Правая колонка - логи -->
+            <div class="col-md-8">
+                <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="bi bi-info-circle"></i> Справка
-                        </h5>
+                        <h5 class="mb-0">Логи сервера</h5>
                     </div>
                     <div class="card-body">
-                        <h6>Основные команды CS2 сервера:</h6>
-                        <ul class="command-list">
-                            <li><code>status</code> - Показать статус сервера и список игроков</li>
-                            <li><code>map &lt;название карты&gt;</code> - Сменить карту</li>
-                            <li><code>exec &lt;название конфига&gt;</code> - Выполнить конфиг</li>
-                            <li><code>sv_cheats 1</code> - Включить читы на сервере</li>
-                            <li><code>mp_restartgame 1</code> - Перезапустить игру</li>
-                        </ul>
-                        <p class="text-muted small">Для получения дополнительной информации о командах, посетите <a href="https://developer.valvesoftware.com/wiki/Counter-Strike_2/Console_Commands" target="_blank" class="text-info">документацию Valve</a>.</p>
+                        <div id="log-container" class="log-container">
+                            {% for log in logs %}
+                                <div class="log-line">{{ log }}</div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusLight = document.getElementById('status-light');
+            const statusText = document.getElementById('status-text');
+            const startServerBtn = document.getElementById('start-server');
+            const stopServerBtn = document.getElementById('stop-server');
+            const updateServerBtn = document.getElementById('update-server');
+            const refreshLogsBtn = document.getElementById('refresh-logs');
+            const commandInput = document.getElementById('command-input');
+            const sendCommandBtn = document.getElementById('send-command');
+            const copyConnectBtn = document.getElementById('copy-connect');
+            const logContainer = document.getElementById('log-container');
+            const serverHost = '{{ host }}';
+
+            // Функция для обновления статуса сервера
+            function updateServerStatus() {
+                fetch('/api/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'running') {
+                            statusLight.className = 'status-light status-on me-2';
+                            statusText.textContent = 'Запущен';
+                        } else {
+                            statusLight.className = 'status-light status-off me-2';
+                            statusText.textContent = 'Остановлен';
+                        }
+                    })
+                    .catch(error => console.error('Ошибка при получении статуса:', error));
+            }
+
+            // Функция для обновления логов
+            function updateLogs() {
+                fetch('/api/logs?lines=100')
+                    .then(response => response.json())
+                    .then(data => {
+                        logContainer.innerHTML = '';
+                        data.logs.forEach(log => {
+                            const logLine = document.createElement('div');
+                            logLine.className = 'log-line';
+                            logLine.textContent = log;
+                            logContainer.appendChild(logLine);
+                        });
+                        logContainer.scrollTop = logContainer.scrollHeight;
+                    })
+                    .catch(error => console.error('Ошибка при получении логов:', error));
+            }
+
+            // Функция для отображения уведомлений
+            function showAlert(message, type = 'success') {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+                alertDiv.role = 'alert';
+                alertDiv.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                
+                // Добавляем уведомление в начало страницы
+                document.querySelector('.container').prepend(alertDiv);
+                
+                // Автоматически скрываем через 3 секунды
+                setTimeout(() => {
+                    alertDiv.classList.remove('show');
+                    setTimeout(() => alertDiv.remove(), 150);
+                }, 3000);
+            }
+
+            // Запуск сервера
+            startServerBtn.addEventListener('click', function() {
+                fetch('/api/start', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        showAlert(data.message);
+                        setTimeout(() => {
+                            updateServerStatus();
+                            updateLogs();
+                        }, 2000);
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при запуске сервера:', error);
+                        showAlert('Ошибка при запуске сервера', 'danger');
+                    });
+            });
+
+            // Остановка сервера
+            stopServerBtn.addEventListener('click', function() {
+                fetch('/api/stop', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        showAlert(data.message);
+                        setTimeout(() => {
+                            updateServerStatus();
+                            updateLogs();
+                        }, 2000);
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при остановке сервера:', error);
+                        showAlert('Ошибка при остановке сервера', 'danger');
+                    });
+            });
+
+            // Обновление сервера
+            updateServerBtn.addEventListener('click', function() {
+                fetch('/api/update', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        showAlert(data.message);
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при обновлении сервера:', error);
+                        showAlert('Ошибка при обновлении сервера', 'danger');
+                    });
+            });
+
+            // Обновление логов
+            refreshLogsBtn.addEventListener('click', updateLogs);
+
+            // Отправка команды
+            function sendCommand() {
+                const command = commandInput.value.trim();
+                if (!command) return;
+
+                fetch('/api/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command: command }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        showAlert(data.message);
+                        commandInput.value = '';
+                        setTimeout(updateLogs, 1000);
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при отправке команды:', error);
+                        showAlert('Ошибка при отправке команды', 'danger');
+                    });
+            }
+
+            // Обработчик кнопки отправки команды
+            sendCommandBtn.addEventListener('click', sendCommand);
+
+            // Обработчик нажатия Enter в поле ввода команды
+            commandInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendCommand();
+                }
+            });
+
+            // Копирование команды подключения
+            copyConnectBtn.addEventListener('click', function() {
+                const connectCommand = `connect ${serverHost}:27015`;
+                navigator.clipboard.writeText(connectCommand)
+                    .then(() => {
+                        showAlert('Команда подключения скопирована в буфер обмена');
+                    })
+                    .catch(err => {
+                        console.error('Ошибка при копировании:', err);
+                        showAlert('Не удалось скопировать команду', 'danger');
+                    });
+            });
+
+            // Автоматическое обновление статуса и логов каждые 30 секунд
+            setInterval(() => {
+                updateServerStatus();
+                updateLogs();
+            }, 30000);
+
+            // Инициализация: обновляем статус сервера и логи
+            updateServerStatus();
+            logContainer.scrollTop = logContainer.scrollHeight;
+        });
+    </script>
 </body>
 </html>
 

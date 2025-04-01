@@ -1,2 +1,3 @@
 web: python bot.py
-web: gunicorn -k gevent -w 1 app:app
+web2: python web.py
+
