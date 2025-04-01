@@ -47,7 +47,7 @@ menu_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🛑 Остановить сервер", callback_data="stop_server")],
     [InlineKeyboardButton(text="🔄 Обновить сервер", callback_data="update_server")],
     [InlineKeyboardButton(text="📡 Статус сервера", callback_data="server_status")],
-    [InlineKeyboardButton(text="🌐 Веб-интерфейс", url=f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'your-app.up.railway.app')}")],
+    [InlineKeyboardButton(text="🌐 Веб-интерфейс", url=f"https://{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'ssh-web-servers-production.up.railway.app')}")],
 ])
 
 async def set_bot_commands():
@@ -95,7 +95,7 @@ async def web_interface(message: types.Message):
         await message.answer("⛔ У тебя нет прав на управление сервером.")
         return
     
-    domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'your-app.up.railway.app')
+    domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'ssh-web-servers-production.up.railway.app')
     await message.answer(f"🌐 Веб-интерфейс доступен по адресу:\nhttps://{domain}")
 
 @dp.callback_query(lambda c: c.data == "run_server")
