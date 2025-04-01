@@ -5,26 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CS2 Server Monitor</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
+        :root {
+            --primary-color: #4a6baf;
+            --secondary-color: #6c8cd5;
+            --accent-color: #3d5a9e;
+            --dark-bg: #121212;
+            --card-bg: #1e1e1e;
+            --border-color: #333;
+            --text-color: #e0e0e0;
+            --input-bg: #2d2d2d;
+        }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
-            color: #e0e0e0;
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            transition: all 0.3s ease;
         }
+        
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
+        
         .card {
-            background-color: #1e1e1e;
-            border-color: #333;
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
             margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
         }
+        
+        .card:hover {
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+        
         .card-header {
             background-color: rgba(0, 0, 0, 0.2);
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 10px 10px 0 0 !important;
+            padding: 15px 20px;
         }
+        
         .log-container {
             height: 500px;
             overflow-y: auto;
@@ -38,38 +65,243 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
+        
         .status-light {
             width: 12px;
             height: 12px;
             border-radius: 50%;
             display: inline-block;
         }
+        
         .status-on {
             background-color: #28a745;
             box-shadow: 0 0 10px #28a745;
+            animation: pulse-green 2s infinite;
         }
+        
         .status-off {
             background-color: #dc3545;
             box-shadow: 0 0 10px #dc3545;
         }
+        
+        .btn {
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
         .btn-dark {
-            background-color: #2d2d2d;
+            background-color: var(--input-bg);
             border-color: #444;
         }
+        
         .btn-dark:hover {
             background-color: #444;
             border-color: #555;
         }
+        
         .form-control {
-            background-color: #2d2d2d;
-            color: #e0e0e0;
+            background-color: var(--input-bg);
+            color: var(--text-color);
             border-color: #444;
+            border-radius: 6px;
         }
+        
         .form-control:focus {
-            background-color: #2d2d2d;
-            color: #e0e0e0;
+            background-color: var(--input-bg);
+            color: var(--text-color);
             border-color: #666;
             box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-tabs {
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--text-color);
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 10px 20px;
+            margin-right: 5px;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            background-color: transparent;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .tab-content {
+            padding: 20px 0;
+        }
+        
+        .file-browser {
+            height: 500px;
+            overflow-y: auto;
+            background-color: #0d0d0d;
+            border-radius: 5px;
+        }
+        
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .file-item {
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s ease;
+        }
+        
+        .file-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .file-item i {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .file-item.directory i {
+            color: #ffc107;
+        }
+        
+        .file-item.file i {
+            color: #17a2b8;
+        }
+        
+        .breadcrumb {
+            background-color: var(--input-bg);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        
+        .breadcrumb-item a {
+            color: var(--secondary-color);
+            text-decoration: none;
+        }
+        
+        .breadcrumb-item.active {
+            color: var(--text-color);
+        }
+        
+        .file-editor {
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .editor-header {
+            padding: 10px;
+            background-color: var(--input-bg);
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .editor-content {
+            flex-grow: 1;
+            background-color: #0d0d0d;
+            border-radius: 0 0 6px 6px;
+            padding: 10px;
+        }
+        
+        .editor-content textarea {
+            width: 100%;
+            height: 100%;
+            background-color: #0d0d0d;
+            color: var(--text-color);
+            border: none;
+            resize: none;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            padding: 10px;
+        }
+        
+        .editor-content textarea:focus {
+            outline: none;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes pulse-green {
+            0% {
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+            }
+        }
+        
+        /* Адаптивность для мобильных устройств */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .card-header {
+                padding: 10px 15px;
+            }
+            
+            .nav-tabs .nav-link {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+            
+            .log-container, .file-browser, .file-editor {
+                height: 400px;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.9rem;
+            }
+            
+            .file-actions {
+                flex-wrap: wrap;
+            }
+        }
+        
+        /* Стили для модальных окон */
+        .modal-content {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border-color: var(--border-color);
+        }
+        
+        .modal-header {
+            border-bottom-color: var(--border-color);
+        }
+        
+        .modal-footer {
+            border-top-color: var(--border-color);
+        }
+        
+        .close {
+            color: var(--text-color);
         }
     </style>
 </head>
@@ -77,60 +309,104 @@
     <div class="container">
         <h1 class="text-center my-4">CS2 Server Monitor</h1>
         
-        <div class="row">
-            <!-- Левая колонка - управление сервером -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Статус сервера</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div id="status-light" class="status-light {{ 'status-on' if status == 'running' else 'status-off' }} me-2"></div>
-                            <span id="status-text">{{ 'Запущен' if status == 'running' else 'Остановлен' }}</span>
+        <ul class="nav nav-tabs mb-4" id="mainTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="server-tab" data-bs-toggle="tab" data-bs-target="#server" type="button" role="tab" aria-controls="server" aria-selected="true">
+                    <i class="bi bi-hdd-rack"></i> Сервер
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab" aria-controls="logs" aria-selected="false">
+                    <i class="bi bi-journal-text"></i> Логи
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="files-tab" data-bs-toggle="tab" data-bs-target="#files" type="button" role="tab" aria-controls="files" aria-selected="false">
+                    <i class="bi bi-folder"></i> Файлы
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="mainTabContent">
+            <!-- Вкладка "Сервер" -->
+            <div class="tab-pane fade show active" id="server" role="tabpanel" aria-labelledby="server-tab">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Статус сервера</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div id="status-light" class="status-light {{ 'status-on' if status == 'running' else 'status-off' }} me-2"></div>
+                                    <span id="status-text">{{ 'Запущен' if status == 'running' else 'Остановлен' }}</span>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button id="start-server" class="btn btn-success">
+                                        <i class="bi bi-play-fill"></i> Запустить сервер
+                                    </button>
+                                    <button id="stop-server" class="btn btn-danger">
+                                        <i class="bi bi-stop-fill"></i> Остановить сервер
+                                    </button>
+                                    <button id="update-server" class="btn btn-warning">
+                                        <i class="bi bi-arrow-repeat"></i> Обновить сервер
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="d-grid gap-2">
-                            <button id="start-server" class="btn btn-success">Запустить сервер</button>
-                            <button id="stop-server" class="btn btn-danger">Остановить сервер</button>
-                            <button id="update-server" class="btn btn-warning">Обновить сервер</button>
-                            <button id="refresh-logs" class="btn btn-info">Обновить логи</button>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Отправить команду</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="input-group mb-3">
+                                    <input type="text" id="command-input" class="form-control" placeholder="Введите команду">
+                                    <button id="send-command" class="btn btn-primary">
+                                        <i class="bi bi-send"></i> Отправить
+                                    </button>
+                                </div>
+                                <div class="mt-3">
+                                    <h6>Популярные команды:</h6>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        <button class="btn btn-sm btn-outline-secondary quick-command" data-command="status">status</button>
+                                        <button class="btn btn-sm btn-outline-secondary quick-command" data-command="mp_restartgame 1">restart</button>
+                                        <button class="btn btn-sm btn-outline-secondary quick-command" data-command="changelevel de_dust2">de_dust2</button>
+                                        <button class="btn btn-sm btn-outline-secondary quick-command" data-command="changelevel de_mirage">de_mirage</button>
+                                        <button class="btn btn-sm btn-outline-secondary quick-command" data-command="changelevel de_inferno">de_inferno</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Отправить команду</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="input-group mb-3">
-                            <input type="text" id="command-input" class="form-control" placeholder="Введите команду">
-                            <button id="send-command" class="btn btn-dark">Отправить</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Информация о сервере</h5>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>IP:</strong> {{ host }}</p>
-                        <p><strong>Порт:</strong> 27015</p>
-                        <div class="d-grid">
-                            <button id="copy-connect" class="btn btn-dark">
-                                Скопировать команду подключения
-                            </button>
+                        
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Информация о сервере</h5>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>IP:</strong> {{ host }}</p>
+                                <p><strong>Порт:</strong> 27015</p>
+                                <div class="d-grid">
+                                    <button id="copy-connect" class="btn btn-primary">
+                                        <i class="bi bi-clipboard"></i> Скопировать команду подключения
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Правая колонка - логи -->
-            <div class="col-md-8">
+            <!-- Вкладка "Логи" -->
+            <div class="tab-pane fade" id="logs" role="tabpanel" aria-labelledby="logs-tab">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Логи сервера</h5>
+                        <button id="refresh-logs" class="btn btn-info">
+                            <i class="bi bi-arrow-clockwise"></i> Обновить
+                        </button>
                     </div>
                     <div class="card-body">
                         <div id="log-container" class="log-container">
@@ -141,12 +417,120 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Вкладка "Файлы" -->
+            <div class="tab-pane fade" id="files" role="tabpanel" aria-labelledby="files-tab">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Файловый менеджер</h5>
+                                <div>
+                                    <button id="refresh-files" class="btn btn-sm btn-info">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <nav aria-label="breadcrumb">
+                                    <ol class="breadcrumb" id="file-path">
+                                        <li class="breadcrumb-item"><a href="#" data-path="/home/zokirjonovjavohir61">Home</a></li>
+                                    </ol>
+                                </nav>
+                                
+                                <div class="file-actions">
+                                    <button id="create-file" class="btn btn-sm btn-success">
+                                        <i class="bi bi-file-earmark-plus"></i> Новый файл
+                                    </button>
+                                    <button id="create-dir" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-folder-plus"></i> Новая папка
+                                    </button>
+                                </div>
+                                
+                                <div class="file-browser">
+                                    <ul class="file-list" id="file-list">
+                                        <!-- Файлы будут загружены через JavaScript -->
+                                        <li class="file-item">
+                                            <i class="bi bi-hourglass"></i> Загрузка...
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-7">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Редактор файлов</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="file-editor">
+                                    <div class="editor-header">
+                                        <span id="current-file">Выберите файл для редактирования</span>
+                                        <div>
+                                            <button id="save-file" class="btn btn-sm btn-success" disabled>
+                                                <i class="bi bi-save"></i> Сохранить
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="editor-content">
+                                        <textarea id="file-content" disabled placeholder="Выберите текстовый файл для редактирования"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для создания файла/директории -->
+    <div class="modal fade" id="createModal" tabindex="-1" aria-labelledby="createModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createModalLabel">Создать новый файл</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="create-name" class="form-label">Имя:</label>
+                        <input type="text" class="form-control" id="create-name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" id="confirm-create">Создать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для подтверждения удаления -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Подтверждение удаления</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Вы уверены, что хотите удалить <span id="delete-name"></span>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-danger" id="confirm-delete">Удалить</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Элементы управления сервером
             const statusLight = document.getElementById('status-light');
             const statusText = document.getElementById('status-text');
             const startServerBtn = document.getElementById('start-server');
@@ -158,7 +542,32 @@
             const copyConnectBtn = document.getElementById('copy-connect');
             const logContainer = document.getElementById('log-container');
             const serverHost = '{{ host }}';
-
+            
+            // Элементы файлового менеджера
+            const fileList = document.getElementById('file-list');
+            const filePath = document.getElementById('file-path');
+            const refreshFilesBtn = document.getElementById('refresh-files');
+            const createFileBtn = document.getElementById('create-file');
+            const createDirBtn = document.getElementById('create-dir');
+            const currentFile = document.getElementById('current-file');
+            const fileContent = document.getElementById('file-content');
+            const saveFileBtn = document.getElementById('save-file');
+            
+            // Модальные окна
+            const createModal = new bootstrap.Modal(document.getElementById('createModal'));
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            const createNameInput = document.getElementById('create-name');
+            const confirmCreateBtn = document.getElementById('confirm-create');
+            const deleteName = document.getElementById('delete-name');
+            const confirmDeleteBtn = document.getElementById('confirm-delete');
+            
+            // Переменные для хранения текущего пути и выбранного файла
+            let currentPath = '/home/zokirjonovjavohir61';
+            let selectedFile = null;
+            let isCreatingDir = false;
+            let fileToDelete = null;
+            let isDeletingDir = false;
+            
             // Функция для обновления статуса сервера
             function updateServerStatus() {
                 fetch('/api/status')
@@ -175,7 +584,7 @@
                     .catch(error => console.error('Ошибка при получении статуса:', error));
             }
 
-            // Функция для обновления логов
+            // Функц��я для обновления логов
             function updateLogs() {
                 fetch('/api/logs?lines=100')
                     .then(response => response.json())
@@ -190,6 +599,245 @@
                         logContainer.scrollTop = logContainer.scrollHeight;
                     })
                     .catch(error => console.error('Ошибка при получении логов:', error));
+            }
+            
+            // Функция для загрузки списка файлов
+            function loadFiles(path) {
+                fileList.innerHTML = '<li class="file-item"><i class="bi bi-hourglass"></i> Загрузка...</li>';
+                
+                fetch(`/api/files?path=${encodeURIComponent(path)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showAlert(data.error, 'danger');
+                            return;
+                        }
+                        
+                        currentPath = data.path;
+                        updateBreadcrumb(currentPath);
+                        
+                        fileList.innerHTML = '';
+                        
+                        // Добавляем ссылку на родительскую директорию, если мы не в корне
+                        if (currentPath !== '/') {
+                            const parentPath = currentPath.split('/').slice(0, -1).join('/') || '/';
+                            const parentItem = document.createElement('li');
+                            parentItem.className = 'file-item directory';
+                            parentItem.innerHTML = '<i class="bi bi-arrow-up-circle"></i> ..';
+                            parentItem.addEventListener('click', () => loadFiles(parentPath));
+                            fileList.appendChild(parentItem);
+                        }
+                        
+                        // Сортируем файлы: сначала директории, потом файлы
+                        const sortedFiles = [...data.files].sort((a, b) => {
+                            if (a.is_dir && !b.is_dir) return -1;
+                            if (!a.is_dir && b.is_dir) return 1;
+                            return a.name.localeCompare(b.name);
+                        });
+                        
+                        sortedFiles.forEach(file => {
+                            const item = document.createElement('li');
+                            item.className = `file-item ${file.is_dir ? 'directory' : 'file'}`;
+                            
+                            let icon = '';
+                            if (file.is_dir) {
+                                icon = '<i class="bi bi-folder"></i>';
+                            } else if (file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.cfg')) {
+                                icon = '<i class="bi bi-file-text"></i>';
+                            } else if (file.name.endsWith('.sh')) {
+                                icon = '<i class="bi bi-file-code"></i>';
+                            } else {
+                                icon = '<i class="bi bi-file"></i>';
+                            }
+                            
+                            const fileActions = document.createElement('div');
+                            fileActions.className = 'ms-auto';
+                            fileActions.innerHTML = `
+                                <button class="btn btn-sm btn-outline-danger delete-btn">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            `;
+                            
+                            item.innerHTML = `${icon} <span>${file.name}</span>`;
+                            item.appendChild(fileActions);
+                            
+                            // Обработчик клика по файлу/директории
+                            item.querySelector('span').addEventListener('click', () => {
+                                if (file.is_dir) {
+                                    loadFiles(`${currentPath}/${file.name}`);
+                                } else {
+                                    openFile(`${currentPath}/${file.name}`);
+                                }
+                            });
+                            
+                            // Обработчик клика по кнопке удаления
+                            item.querySelector('.delete-btn').addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                fileToDelete = `${currentPath}/${file.name}`;
+                                isDeletingDir = file.is_dir;
+                                deleteName.textContent = file.name;
+                                deleteModal.show();
+                            });
+                            
+                            fileList.appendChild(item);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при загрузке файлов:', error);
+                        showAlert('Ошибка при загрузке файлов', 'danger');
+                    });
+            }
+            
+            // Функция для обновления хлебных крошек
+            function updateBreadcrumb(path) {
+                const parts = path.split('/').filter(part => part);
+                filePath.innerHTML = '';
+                
+                // Добавляем корневую директорию
+                const rootItem = document.createElement('li');
+                rootItem.className = 'breadcrumb-item';
+                rootItem.innerHTML = '<a href="#" data-path="/">Root</a>';
+                rootItem.querySelector('a').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    loadFiles('/');
+                });
+                filePath.appendChild(rootItem);
+                
+                // Добавляем остальные части пути
+                let currentPathBuild = '';
+                parts.forEach((part, index) => {
+                    currentPathBuild += '/' + part;
+                    const item = document.createElement('li');
+                    item.className = 'breadcrumb-item';
+                    
+                    if (index === parts.length - 1) {
+                        item.classList.add('active');
+                        item.textContent = part;
+                    } else {
+                        item.innerHTML = `<a href="#" data-path="${currentPathBuild}">${part}</a>`;
+                        item.querySelector('a').addEventListener('click', (e) => {
+                            e.preventDefault();
+                            loadFiles(currentPathBuild);
+                        });
+                    }
+                    
+                    filePath.appendChild(item);
+                });
+            }
+            
+            // Функция для открытия файла
+            function openFile(path) {
+                fetch(`/api/file/content?path=${encodeURIComponent(path)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showAlert(data.error, 'danger');
+                            return;
+                        }
+                        
+                        selectedFile = path;
+                        currentFile.textContent = path.split('/').pop();
+                        fileContent.value = data.content;
+                        fileContent.disabled = false;
+                        saveFileBtn.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при открытии файла:', error);
+                        showAlert('Ошибка при открытии файла', 'danger');
+                    });
+            }
+            
+            // Функция для сохранения файла
+            function saveFile() {
+                if (!selectedFile) return;
+                
+                fetch('/api/file/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: selectedFile,
+                        content: fileContent.value
+                    }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showAlert(data.error, 'danger');
+                            return;
+                        }
+                        
+                        showAlert('Файл успешно сохранен', 'success');
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при сохранении файла:', error);
+                        showAlert('Ошибка при сохранении файла', 'danger');
+                    });
+            }
+            
+            // Функция для создания файла/директории
+            function createFileOrDir() {
+                const name = createNameInput.value.trim();
+                if (!name) return;
+                
+                fetch('/api/file/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: currentPath,
+                        name: name,
+                        is_dir: isCreatingDir
+                    }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showAlert(data.error, 'danger');
+                            return;
+                        }
+                        
+                        showAlert(data.message, 'success');
+                        loadFiles(currentPath);
+                        createModal.hide();
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при создании файла/директории:', error);
+                        showAlert('Ошибка при создании файла/директории', 'danger');
+                    });
+            }
+            
+            // Функция для удаления файла/директории
+            function deleteFileOrDir() {
+                if (!fileToDelete) return;
+                
+                fetch('/api/file/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: fileToDelete,
+                        is_dir: isDeletingDir
+                    }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showAlert(data.error, 'danger');
+                            return;
+                        }
+                        
+                        showAlert(data.message, 'success');
+                        loadFiles(currentPath);
+                        deleteModal.hide();
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при удалении файла/директории:', error);
+                        showAlert('Ошибка при удалении файла/директории', 'danger');
+                    });
             }
 
             // Функция для отображения уведомлений
@@ -323,16 +971,63 @@
                         showAlert('Не удалось скопировать команду', 'danger');
                     });
             });
+            
+            // Обработчики для быстрых команд
+            document.querySelectorAll('.quick-command').forEach(button => {
+                button.addEventListener('click', function() {
+                    commandInput.value = this.dataset.command;
+                    sendCommand();
+                });
+            });
+            
+            // Обработчики для файлового менеджера
+            refreshFilesBtn.addEventListener('click', () => loadFiles(currentPath));
+            
+            createFileBtn.addEventListener('click', () => {
+                isCreatingDir = false;
+                document.getElementById('createModalLabel').textContent = 'Создать новый файл';
+                createNameInput.value = '';
+                createModal.show();
+            });
+            
+            createDirBtn.addEventListener('click', () => {
+                isCreatingDir = true;
+                document.getElementById('createModalLabel').textContent = 'Создать новую папку';
+                createNameInput.value = '';
+                createModal.show();
+            });
+            
+            confirmCreateBtn.addEventListener('click', createFileOrDir);
+            
+            confirmDeleteBtn.addEventListener('click', deleteFileOrDir);
+            
+            saveFileBtn.addEventListener('click', saveFile);
+            
+            // Обработчик переключения вкладок
+            document.getElementById('files-tab').addEventListener('shown.bs.tab', () => {
+                loadFiles(currentPath);
+            });
 
             // Автоматическое обновление статуса и логов каждые 30 секунд
             setInterval(() => {
                 updateServerStatus();
-                updateLogs();
+                
+                // Обновляем логи только если активна вкладка логов
+                if (document.getElementById('logs-tab').classList.contains('active')) {
+                    updateLogs();
+                }
             }, 30000);
 
             // Инициализация: обновляем статус сервера и логи
             updateServerStatus();
             logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Загружаем файлы при первом открытии вкладки
+            document.getElementById('files-tab').addEventListener('click', function() {
+                if (!fileList.querySelector('.file-item') || fileList.querySelector('.file-item').textContent.includes('Загрузка')) {
+                    loadFiles(currentPath);
+                }
+            });
         });
     </script>
 </body>
