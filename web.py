@@ -1,7 +1,6 @@
 import os
 import paramiko
 import time
-import threading
 from flask import Flask, render_template, jsonify, request
 
 # Настройка SSH
@@ -12,6 +11,7 @@ SSH_KEY_PATH = "id_rsa"
 LOG_FILE_PATH = "/home/zokirjonovjavohir61/.steam/steam/steamapps/common/Counter-Strike\\ Global\\ Offensive/game/bin/linuxsteamrt64/cs2_log.txt"
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 def get_ssh_client():
     """Создает и возвращает SSH клиент"""
